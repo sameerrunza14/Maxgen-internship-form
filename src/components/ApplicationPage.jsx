@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { TopBar, Hero, PageFooter } from './layout/PageHeader';
+import FaqSection from './layout/FaqSection';
 import { StepperSidebar, StepperMobile } from './layout/Stepper';
 import SuccessScreen from './layout/SuccessScreen';
 import PersonalStep from './steps/PersonalStep';
@@ -335,9 +336,9 @@ function ApplicationPage() {
   return (
     <div className="min-h-screen">
       <TopBar />
-      <Hero />
+      <Hero selectedTechnology={values.technology} />
 
-      <main className="relative z-10 mx-auto -mt-[72px] max-w-6xl px-3 sm:-mt-20 sm:px-6">
+      <main className="relative z-10 mx-auto -mt-[72px] max-w-6xl px-3 sm:-mt-24 sm:px-6">
         <div
           ref={cardRef}
           className="scroll-mt-20 overflow-hidden sm:scroll-mt-24 rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_20px_50px_-24px_rgba(20,33,64,0.35)] ring-1 ring-slate-200/70"
@@ -356,7 +357,7 @@ function ApplicationPage() {
                 <StepperSidebar currentStep={currentStep} highestStep={highestStep} onStepClick={handleStepClick} />
 
                 <div className="mt-2 rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Keep these ready</p>
+                  <p className="text-sm font-semibold text-slate-800">Keep these ready</p>
                   <ul className="mt-3 space-y-2 text-[13px] text-slate-600">
                     <li className="flex gap-2">
                       <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500" />
@@ -387,7 +388,7 @@ function ApplicationPage() {
                   <StepperMobile currentStep={currentStep} />
 
                   <div className="mt-6 lg:mt-0">
-                    <p className="hidden text-xs font-semibold uppercase tracking-[0.14em] text-accent-600 lg:block">
+                    <p className="hidden text-sm font-semibold text-accent-600 lg:block">
                       Step {currentStep + 1} of {STEPS.length}
                     </p>
                     <h2
@@ -480,6 +481,9 @@ function ApplicationPage() {
           )}
         </div>
       </main>
+
+      {!result && <FaqSection />}
+      {result && <div className="h-14" />}
 
       <PageFooter />
     </div>

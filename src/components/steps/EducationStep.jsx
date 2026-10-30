@@ -38,7 +38,7 @@ function EducationStep({ values, errors, onChange, onBlur }) {
         <TextInput
           label="Specialization"
           name="specialization"
-          required
+          optional
           placeholder="e.g. Computer Science, IT"
           value={values.specialization}
           error={errors.specialization}
@@ -52,7 +52,7 @@ function EducationStep({ values, errors, onChange, onBlur }) {
           className="sm:col-span-2"
           label="Specialization"
           name="specialization"
-          required
+          optional
           placeholder="e.g. Computer Science, IT"
           value={values.specialization}
           error={errors.specialization}

@@ -1,6 +1,8 @@
 import Logo from './Logo';
+import { TECHNOLOGIES } from '../../constants/formOptions';
 
 const WEBSITE_URL = 'https://www.maxgentechnologies.com/';
+const CURRENT_YEAR = new Date().getFullYear();
 
 export function TopBar() {
   return (
@@ -16,8 +18,8 @@ export function TopBar() {
             <span className="block truncate text-base font-extrabold tracking-tight text-brand-700 sm:text-xl">
               Maxgen <span className="text-accent-500">Technologies</span>
             </span>
-            <span className="mt-0.5 block truncate text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 sm:text-[11px]">
-              Pvt. Ltd.<span className="hidden sm:inline"> · Internship Programme</span>
+            <span className="mt-0.5 block truncate text-xs font-medium text-slate-500 sm:text-[13px]">
+              Internship applications
             </span>
           </span>
         </a>
@@ -36,42 +38,78 @@ export function TopBar() {
   );
 }
 
-const CURRENT_YEAR = new Date().getFullYear();
+// The three things that happen after a student applies (a real sequence, so it is numbered)
+const HOW_IT_WORKS = [
+  { title: 'Fill this form', text: 'About 5 minutes, on your phone or laptop.' },
+  { title: 'Our HR team calls you', text: 'We check your details and discuss your track.' },
+  { title: 'Get your offer letter', text: 'Join online, at our office, or both.' },
+];
 
-const HIGHLIGHTS = ['14 technologies', 'Ahmedabad · Pune · Mumbai', 'Online · Offline · Hybrid'];
+/**
+ * The 14 technologies written large and slanted behind the hero, like the strokes of the Maxgen "M".
+ * The one the student picks in the form lights up in red.
+ */
+function TechnologyWall({ selectedTechnology }) {
+  return (
+    <div
+      className="pointer-events-none absolute inset-y-0 right-0 w-full overflow-hidden opacity-60 [mask-image:linear-gradient(to_right,transparent_0%,black_60%)] lg:w-[46%] lg:opacity-100 lg:[mask-image:linear-gradient(to_right,transparent_0%,black_22%)]"
+      aria-hidden="true"
+    >
+      <ul className="absolute -right-24 -top-10 flex w-[680px] -rotate-[14deg] flex-wrap content-start gap-x-6 gap-y-1 sm:-right-10 lg:-right-16 lg:top-4">
+        {TECHNOLOGIES.map(function (technology, index) {
+          const isSelected = technology.value === selectedTechnology;
+          let className = 'whitespace-nowrap text-[40px] font-extrabold leading-[1.15] tracking-tight transition-colors duration-500 ';
 
-export function Hero() {
+          if (isSelected) {
+            className = className + 'text-accent-500 opacity-100';
+          } else if (index % 3 === 1) {
+            // Every third name is drawn as an outline, the rest as faint solid text
+            className = className + 'text-transparent opacity-60 [-webkit-text-stroke:1px_rgba(255,255,255,0.35)]';
+          } else {
+            className = className + 'text-white/[0.09]';
+          }
+
+          return (
+            <li key={technology.value} className={className}>
+              {technology.label}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+export function Hero({ selectedTechnology }) {
   return (
     <div className="relative overflow-hidden bg-brand-700">
-      {/* Decorative slanted bars, inspired by the Maxgen "M" mark */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div className="absolute -right-10 -top-24 h-[420px] w-24 rotate-[20deg] rounded-full bg-white/[0.05]" />
-        <div className="absolute right-24 -top-24 h-[420px] w-24 rotate-[20deg] rounded-full bg-white/[0.07]" />
-        <div className="absolute right-56 -top-24 h-[420px] w-24 rotate-[20deg] rounded-full bg-white/[0.04]" />
-        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-      </div>
+      <TechnologyWall selectedTechnology={selectedTechnology} />
 
-      <div className="relative mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 sm:pb-28 sm:pt-14">
-        <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-white/85 ring-1 ring-white/15">
+      <div className="relative mx-auto max-w-6xl px-4 pb-24 pt-7 sm:px-6 sm:pb-32 sm:pt-14">
+        <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[13px] font-medium text-white/90 ring-1 ring-white/15">
           <span className="h-1.5 w-1.5 rounded-full bg-accent-500" />
-          Internship Programme {CURRENT_YEAR}
+          Applications open for {CURRENT_YEAR}
         </p>
-        <h1 className="mt-3 max-w-2xl text-2xl font-extrabold leading-tight tracking-tight text-white sm:mt-4 sm:text-4xl">
-          Internship Application Form
+
+        <h1 className="mt-4 max-w-xl text-[28px] font-extrabold leading-[1.1] tracking-tight text-white sm:text-[44px]">
+          Learn by building real software at Maxgen.
         </h1>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-brand-100 sm:mt-3 sm:text-[15px]">
-          Learn by building real projects with our development team. Fill in your details below — it takes about
-          5 minutes.
+        <p className="mt-3 max-w-md text-[15px] leading-relaxed text-brand-100 sm:text-base">
+          Choose from 14 technologies and intern online, offline at our Ahmedabad, Pune or Mumbai office, or in
+          hybrid mode. Apply below in about 5 minutes.
         </p>
-        <ul className="mt-6 hidden flex-wrap gap-2 sm:flex">
-          {HIGHLIGHTS.map(function (item) {
+
+        <ol className="mt-8 hidden max-w-[600px] gap-6 sm:grid sm:grid-cols-3">
+          {HOW_IT_WORKS.map(function (step, index) {
             return (
-              <li key={item} className="rounded-lg bg-white/[0.08] px-3 py-1.5 text-[13px] font-medium text-white/90 ring-1 ring-white/10">
-                {item}
+              <li key={step.title} className="border-t border-white/20 pt-3">
+                <span className="text-sm font-bold text-accent-500">{index + 1}</span>
+                <p className="mt-1 text-[15px] font-semibold text-white">{step.title}</p>
+                <p className="mt-0.5 text-[13px] leading-snug text-brand-200">{step.text}</p>
               </li>
             );
           })}
-        </ul>
+        </ol>
       </div>
     </div>
   );
@@ -79,8 +117,13 @@ export function Hero() {
 
 export function PageFooter() {
   return (
-    <footer className="mx-auto max-w-6xl px-4 pb-10 pt-6 text-center text-xs text-slate-400 sm:px-6">
-      © {CURRENT_YEAR} Maxgen Technologies Pvt. Ltd. All rights reserved.
+    <footer className="border-t border-slate-200 bg-white">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-6 text-center text-[13px] text-slate-500 sm:flex-row sm:px-6 sm:text-left">
+        <p>© {CURRENT_YEAR} Maxgen Technologies Pvt. Ltd.</p>
+        <a href={WEBSITE_URL} className="font-medium text-brand-700 underline-offset-4 hover:underline">
+          maxgentechnologies.com
+        </a>
+      </div>
     </footer>
   );
 }

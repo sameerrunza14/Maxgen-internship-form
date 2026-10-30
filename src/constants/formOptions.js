@@ -64,7 +64,7 @@ export const LOCATIONS = [
 ];
 
 export const INTERNSHIP_MODES = [
-  { value: 'Online', label: 'Online', description: 'Work from home' },
+  { value: 'Online', label: 'Online', description: 'Intern remotely' },
   { value: 'Offline', label: 'Offline', description: 'At our office' },
   { value: 'Hybrid', label: 'Hybrid', description: 'Mix of both' },
 ];

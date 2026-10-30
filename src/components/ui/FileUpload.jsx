@@ -132,7 +132,7 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
                   clipRule="evenodd"
                 />
               </svg>
-              {formatSize(file.size)} · Ready
+              {formatSize(file.size)}, ready
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -192,7 +192,7 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
               <span className="hidden sm:inline"> or drag and drop</span>
             </span>
             <span className="mt-0.5 block text-xs text-slate-500 sm:mt-1">
-              {config.allowedLabel} · up to {MAX_FILE_SIZE_MB} MB
+              {config.allowedLabel}, up to {MAX_FILE_SIZE_MB} MB
             </span>
           </span>
         </button>

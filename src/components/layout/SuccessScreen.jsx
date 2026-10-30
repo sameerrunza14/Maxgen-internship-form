@@ -27,13 +27,13 @@ function SuccessScreen({ name, email, referenceNo, onStartAgain }) {
       </p>
 
       <div className="mx-auto mt-6 inline-flex flex-col items-center rounded-xl border border-dashed border-brand-300 bg-brand-50 px-6 py-3">
-        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-600">Application ID</span>
+        <span className="text-[13px] font-medium text-brand-600">Your application ID</span>
         <span className="mt-1 font-mono text-lg font-bold tracking-wider text-brand-800">{referenceNo}</span>
       </div>
       <p className="mt-2 text-xs text-slate-500">Please keep this ID for future communication.</p>
 
       <div className="mx-auto mt-10 max-w-2xl text-left">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">What happens next</h3>
+        <h3 className="text-base font-bold text-slate-900">What happens next</h3>
         <ol className="mt-4 grid gap-3 sm:grid-cols-3">
           {NEXT_STEPS.map(function (step, index) {
             return (

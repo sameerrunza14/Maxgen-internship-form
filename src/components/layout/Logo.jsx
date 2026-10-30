@@ -11,7 +11,7 @@ function Logo({ className }) {
     return (
       <span className={'inline-flex items-baseline gap-1.5 ' + (className || '')} aria-label="Maxgen Technologies">
         <span className="text-xl font-extrabold tracking-[0.12em] text-accent-500">MAXGEN</span>
-        <span className="hidden text-xs font-semibold uppercase tracking-[0.18em] text-brand-700 sm:inline">
+        <span className="hidden text-sm font-semibold text-brand-700 sm:inline">
           Technologies
         </span>
       </span>

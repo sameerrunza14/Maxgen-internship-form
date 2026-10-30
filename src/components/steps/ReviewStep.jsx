@@ -24,7 +24,7 @@ function ReviewSection({ title, stepIndex, rows, onEdit }) {
         {rows.map(function (row) {
           return (
             <div key={row.label} className={row.wide ? 'sm:col-span-2' : ''}>
-              <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">{row.label}</dt>
+              <dt className="text-[13px] text-slate-500">{row.label}</dt>
               <dd className="mt-0.5 break-words text-sm font-medium text-slate-800">{row.value || '—'}</dd>
             </div>
           );

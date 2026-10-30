@@ -78,7 +78,6 @@ export function validateField(name, values, files) {
       return '';
 
     case 'specialization':
-      if (!value) return 'Please enter your specialization.';
       if (value.length > 100) return 'Specialization must be 100 characters or less.';
       return '';
 

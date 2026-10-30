@@ -95,7 +95,7 @@ export function StepperMobile({ currentStep }) {
   return (
     <div className="lg:hidden">
       <div className="flex items-center justify-between text-xs font-semibold">
-        <span className="uppercase tracking-wide text-accent-600">
+        <span className="text-accent-600">
           Step {currentStep + 1} of {STEPS.length}
         </span>
         {currentStep < STEPS.length - 1 && (
