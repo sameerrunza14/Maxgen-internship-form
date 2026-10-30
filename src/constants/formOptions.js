@@ -34,7 +34,7 @@ export const TECHNOLOGIES = [
   { value: 'UI/UX Design', label: 'UI / UX Design', description: 'Figma, wireframes, prototypes' },
   { value: 'AWS / DevOps', label: 'AWS / DevOps', description: 'Cloud, CI/CD, deployment' },
   { value: 'AI / ML', label: 'AI / ML', description: 'Machine learning models' },
-  { value: 'Data Structures & Algorithms', label: 'Data Structures', description: 'DSA & problem solving' },
+  { value: 'Data Scientist', label: 'Data Scientist', description: 'DSA & problem solving' },
   { value: 'Data Analytics', label: 'Data Analytics', description: 'Excel, SQL, Power BI, Python' },
   { value: 'Generative AI', label: 'Generative AI', description: 'LLMs, prompts, AI apps' },
   { value: 'Cyber Security', label: 'Cyber Security', description: 'Networks & ethical hacking' },
