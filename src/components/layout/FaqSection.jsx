@@ -1,4 +1,3 @@
-import { MAX_FILE_SIZE_MB } from '../../constants/formOptions';
 
 // Answers are taken from the form itself, so they stay true. Update them if the form changes.
 const QUESTIONS = [
@@ -8,7 +7,7 @@ const QUESTIONS = [
   },
   {
     question: 'Which documents do I need?',
-    answer: `Your Aadhaar or PAN card and your resume as a PDF. College ID and a passport size photo are optional. Each file can be up to ${MAX_FILE_SIZE_MB} MB.`,
+    answer: `Your Aadhaar or PAN card and your resume as a PDF. College ID and a passport size photo are optional. Files can be up to 500 KB (photo 200 KB) — large photos are resized for you automatically.`,
   },
   {
     question: 'Is the internship online or offline?',

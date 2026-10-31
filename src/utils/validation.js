@@ -1,4 +1,4 @@
-import { DOCUMENTS, MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from '../constants/formOptions';
+import { DOCUMENTS } from '../constants/formOptions';
 
 const NAME_PATTERN = /^[A-Za-z][A-Za-z .'-]*$/;
 const PHONE_PATTERN = /^[6-9]\d{9}$/;
@@ -22,13 +22,26 @@ function findDocument(name) {
   return null;
 }
 
-// Checks a file the moment the user picks it. Returns an error message or ''.
-export function checkFile(file, documentConfig) {
+// Is this file type allowed for this document? Returns an error message or ''.
+export function checkFileType(file, documentConfig) {
   if (!documentConfig.allowedTypes.includes(file.type)) {
-    return `Please upload a ${documentConfig.allowedLabel} file.`;
+    return 'Please upload a ' + documentConfig.allowedLabel + ' file.';
   }
-  if (file.size > MAX_FILE_SIZE_BYTES) {
-    return `File is too large. Maximum size is ${MAX_FILE_SIZE_MB} MB.`;
+  return '';
+}
+
+// Is this file small enough? Returns an error message or ''.
+export function checkFileSize(file, documentConfig) {
+  const maxBytes = documentConfig.maxSizeKB * 1024;
+  if (file.size > maxBytes) {
+    const sizeKB = Math.round(file.size / 1024);
+    if (file.type === 'application/pdf') {
+      return (
+        'This PDF is ' + sizeKB + ' KB. The limit is ' + documentConfig.maxSizeKB +
+        ' KB — please compress the PDF (search "compress PDF" online) and upload it again.'
+      );
+    }
+    return 'This file is ' + sizeKB + ' KB. The limit is ' + documentConfig.maxSizeKB + ' KB.';
   }
   return '';
 }

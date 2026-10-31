@@ -53,51 +53,49 @@ export function buildApplicationFormData(values, files) {
   return formData;
 }
 
-function wait(milliseconds) {
-  return new Promise(function (resolve) {
-    setTimeout(resolve, milliseconds);
-  });
-}
+// Where the backend runs.
+// - Empty (default): same website, e.g. /api/applications. In development Vite forwards /api to
+//   http://localhost:5000 (see vite.config.js). In production the backend serves the frontend.
+// - Set VITE_API_URL in frontend/.env only if the API is on a different domain.
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
-function makeDemoReferenceNo() {
-  const year = new Date().getFullYear();
-  const random = Math.floor(100000 + Math.random() * 900000);
-  return 'MG-' + year + '-' + random;
-}
+const NETWORK_ERROR_MESSAGE =
+  'Could not reach the server. Please check your internet connection and try again.';
 
 /**
- * Submits the application.
- *
- * FRONTEND ONLY (for now): nothing is sent to a server. We wait a moment, print the data
- * in the browser console and return a demo reference number.
- *
- * When the backend is ready, replace the body of this function with:
- *
- *   const response = await fetch(import.meta.env.VITE_API_URL + '/api/applications', {
- *     method: 'POST',
- *     body: formData,
- *   });
- *   const result = await response.json();
- *   if (!response.ok) {
- *     const error = new Error(result.message || 'Submission failed.');
- *     error.fieldErrors = result.errors || {};
- *     throw error;
- *   }
- *   return { referenceNo: result.data.referenceNo };
+ * Sends the application (fields + documents) to the backend.
+ * Returns { referenceNo } on success.
+ * On failure it throws an Error; `error.fieldErrors` holds messages for specific fields.
  */
 export async function submitApplication(values, files) {
   const formData = buildApplicationFormData(values, files);
 
-  await wait(1200);
-
-  console.log('--- Application data (frontend only, not sent anywhere) ---');
-  for (const [key, value] of formData.entries()) {
-    if (value instanceof File) {
-      console.log(key + ':', value.name, '(' + Math.round(value.size / 1024) + ' KB)');
-    } else {
-      console.log(key + ':', value);
-    }
+  let response;
+  try {
+    response = await fetch(API_BASE_URL + '/api/applications', {
+      method: 'POST',
+      body: formData, // the browser sets the multipart Content-Type header itself
+    });
+  } catch {
+    throw new Error(NETWORK_ERROR_MESSAGE);
   }
 
-  return { referenceNo: makeDemoReferenceNo() };
+  let result = null;
+  try {
+    result = await response.json();
+  } catch {
+    result = null;
+  }
+
+  if (!response.ok || !result || !result.success) {
+    let message = 'Something went wrong. Please try again in a few minutes.';
+    if (result && result.message) {
+      message = result.message;
+    }
+    const error = new Error(message);
+    error.fieldErrors = result && result.errors ? result.errors : {};
+    throw error;
+  }
+
+  return { referenceNo: result.data.referenceNo };
 }

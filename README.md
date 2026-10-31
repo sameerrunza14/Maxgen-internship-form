@@ -28,7 +28,8 @@ src/
 ├── index.css                    Tailwind import + Maxgen brand colours
 ├── constants/formOptions.js     All options, documents, steps and declaration text
 ├── utils/validation.js          Validation rules for every field and step
-├── services/applicationApi.js   Builds the FormData + submit function (currently frontend-only)
+├── services/applicationApi.js   Builds the FormData and sends it to the backend
+├── admin/                       Admin panel: sign in, applications list, application details
 └── components/
     ├── ApplicationPage.jsx      Main page: form state, step navigation, submit
     ├── layout/                  Logo, header, hero, stepper, success screen
@@ -36,10 +37,22 @@ src/
     └── ui/                      Reusable inputs, choice cards, file upload
 ```
 
+## Admin panel
+
+Open `/admin` (e.g. http://localhost:5173/admin) and sign in with an account created by
+`npm run create-admin` in the backend folder. HR can search and filter applications, open every detail and
+document, and accept or reject. The admin pages are loaded only when `/admin` is opened, so students filling
+the form do not download them. `vercel.json` makes `/admin` links work on Vercel.
+
+## Backend
+
+The form sends applications to the Node.js + Express + MongoDB backend in the `backend` folder
+(`POST /api/applications`). During development, run the backend on port 5000 and the frontend with
+`npm run dev`; Vite forwards `/api` requests to the backend (see `vite.config.js`). Setup steps are in
+`backend/README.md`.
+
 ## Notes
 
-- Submitting is **frontend only** right now: the data is printed in the browser console and a demo
-  Application ID is shown. To connect the backend, follow the comment in `src/services/applicationApi.js`.
-- Field names and option values match `backend/src/constants/applicationOptions.js` — keep both in sync.
+- Field names and option values must match `backend/src/constants/applicationOptions.js`.
 - Text answers are saved in the browser (localStorage) so a page refresh does not lose them.
   Uploaded files are not saved and must be selected again after a refresh.

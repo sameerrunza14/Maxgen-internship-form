@@ -22,7 +22,7 @@ function Logo({ className }) {
     <img
       src={LOGO_SRC}
       alt="Maxgen Technologies"
-      className={'h-11 w-auto shrink-0 sm:h-[58px] ' + (className || '')}
+      className={className || 'h-11 w-auto shrink-0 sm:h-[58px]'}
       onError={function () {
         setImageFailed(true);
       }}

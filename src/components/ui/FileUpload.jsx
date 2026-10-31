@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FieldError } from './Field';
-import { MAX_FILE_SIZE_MB } from '../../constants/formOptions';
-import { checkFile } from '../../utils/validation';
+import { checkFileType, checkFileSize } from '../../utils/validation';
+import { compressImage } from '../../utils/compressImage';
 
 function formatSize(bytes) {
   if (bytes < 1024 * 1024) {
@@ -38,6 +38,8 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
   const inputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [previewUrl, setPreviewUrl] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [resizedFrom, setResizedFrom] = useState(0); // original size in bytes, if we made the photo smaller
 
   // Create a preview for image files and clean it up afterwards
   useEffect(
@@ -55,15 +57,47 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
     [file]
   );
 
-  function handleFile(selectedFile) {
+  async function handleFile(selectedFile) {
     if (!selectedFile) {
       return;
     }
-    const message = checkFile(selectedFile, config);
-    if (message) {
-      onError(config.name, message);
+
+    const typeError = checkFileType(selectedFile, config);
+    if (typeError) {
+      onError(config.name, typeError);
       return;
     }
+
+    const maxBytes = config.maxSizeKB * 1024;
+    const isImage = selectedFile.type === 'image/jpeg' || selectedFile.type === 'image/png';
+
+    // A photo that is too large is made smaller automatically
+    if (isImage && selectedFile.size > maxBytes) {
+      setIsProcessing(true);
+      let smallerFile = null;
+      try {
+        smallerFile = await compressImage(selectedFile, maxBytes);
+      } catch {
+        smallerFile = null;
+      }
+      setIsProcessing(false);
+
+      if (!smallerFile) {
+        onError(config.name, 'This photo could not be made smaller than ' + config.maxSizeKB + ' KB. Please try another photo.');
+        return;
+      }
+      setResizedFrom(selectedFile.size);
+      onSelect(config.name, smallerFile);
+      return;
+    }
+
+    const sizeError = checkFileSize(selectedFile, config);
+    if (sizeError) {
+      onError(config.name, sizeError);
+      return;
+    }
+
+    setResizedFrom(0);
     onSelect(config.name, selectedFile);
   }
 
@@ -132,7 +166,9 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
                   clipRule="evenodd"
                 />
               </svg>
-              {formatSize(file.size)}, ready
+              {resizedFrom > 0
+                ? 'Resized from ' + formatSize(resizedFrom) + ' to ' + formatSize(file.size) + ', ready'
+                : formatSize(file.size) + ', ready'}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -161,6 +197,7 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
         <button
           type="button"
           onClick={openPicker}
+          disabled={isProcessing}
           onDragOver={function (event) {
             event.preventDefault();
             setIsDragging(true);
@@ -186,13 +223,19 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
           <span className="min-w-0">
             <span className="block text-sm text-slate-700 sm:mt-3">
               <span className="font-semibold text-brand-700">
-                <span className="sm:hidden">Tap to upload</span>
-                <span className="hidden sm:inline">Click to upload</span>
+                {isProcessing ? (
+                  'Please wait'
+                ) : (
+                  <>
+                    <span className="sm:hidden">Tap to upload</span>
+                    <span className="hidden sm:inline">Click to upload</span>
+                  </>
+                )}
               </span>
               <span className="hidden sm:inline"> or drag and drop</span>
             </span>
             <span className="mt-0.5 block text-xs text-slate-500 sm:mt-1">
-              {config.allowedLabel}, up to {MAX_FILE_SIZE_MB} MB
+              {isProcessing ? 'Making your photo smaller…' : config.allowedLabel + ', up to ' + config.maxSizeKB + ' KB'}
             </span>
           </span>
         </button>

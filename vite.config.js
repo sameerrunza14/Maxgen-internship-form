@@ -6,5 +6,9 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
+    // During development, send /api requests to the Node.js backend
+    proxy: {
+      '/api': 'http://localhost:5000',
+    },
   },
 });

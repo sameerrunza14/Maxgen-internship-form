@@ -34,7 +34,7 @@ export const TECHNOLOGIES = [
   { value: 'UI/UX Design', label: 'UI / UX Design', description: 'Figma, wireframes, prototypes' },
   { value: 'AWS / DevOps', label: 'AWS / DevOps', description: 'Cloud, CI/CD, deployment' },
   { value: 'AI / ML', label: 'AI / ML', description: 'Machine learning models' },
-  { value: 'Data Scientist', label: 'Data Scientist', description: 'DSA & problem solving' },
+  { value: 'Data Science', label: 'Data Science', description: 'Python, statistics, ML models' },
   { value: 'Data Analytics', label: 'Data Analytics', description: 'Excel, SQL, Power BI, Python' },
   { value: 'Generative AI', label: 'Generative AI', description: 'LLMs, prompts, AI apps' },
   { value: 'Cyber Security', label: 'Cyber Security', description: 'Networks & ethical hacking' },
@@ -87,10 +87,9 @@ export const REFERENCE_DETAIL_LABELS = {
   'Any Other': { label: 'Please Specify', placeholder: 'Where did you hear about us?' },
 };
 
-export const MAX_FILE_SIZE_MB = 2;
-export const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-
 // Every document the applicant uploads. The key is the field name sent to the backend.
+// maxSizeKB: the largest file allowed (keep the same as backend/src/constants/applicationOptions.js).
+// Photos that are too large are made smaller automatically in the browser before upload.
 export const DOCUMENTS = [
   {
     name: 'idProof',
@@ -99,6 +98,7 @@ export const DOCUMENTS = [
     accept: '.pdf,.jpg,.jpeg,.png',
     allowedTypes: ['application/pdf', 'image/jpeg', 'image/png'],
     allowedLabel: 'PDF, JPG or PNG',
+    maxSizeKB: 500,
   },
   {
     name: 'collegeId',
@@ -107,6 +107,7 @@ export const DOCUMENTS = [
     accept: '.pdf,.jpg,.jpeg,.png',
     allowedTypes: ['application/pdf', 'image/jpeg', 'image/png'],
     allowedLabel: 'PDF, JPG or PNG',
+    maxSizeKB: 500,
   },
   {
     name: 'resume',
@@ -115,6 +116,7 @@ export const DOCUMENTS = [
     accept: '.pdf',
     allowedTypes: ['application/pdf'],
     allowedLabel: 'PDF',
+    maxSizeKB: 500,
   },
   {
     name: 'photo',
@@ -123,6 +125,7 @@ export const DOCUMENTS = [
     accept: '.jpg,.jpeg,.png',
     allowedTypes: ['image/jpeg', 'image/png'],
     allowedLabel: 'JPG or PNG',
+    maxSizeKB: 200,
   },
 ];
 
@@ -137,7 +140,7 @@ export const STEPS = [
   { title: 'Personal Information', short: 'Personal', description: 'Tell us who you are and how to reach you.' },
   { title: 'Education Background', short: 'Education', description: 'Your current or most recent education.' },
   { title: 'Internship Details', short: 'Internship', description: 'Choose the program that fits you.' },
-  { title: 'Documents', short: 'Documents', description: `Upload clear copies. Max ${MAX_FILE_SIZE_MB} MB per file.` },
+  { title: 'Documents', short: 'Documents', description: 'Upload clear copies. Large photos are resized for you.' },
   { title: 'Review & Submit', short: 'Review', description: 'Check your details and accept the declaration.' },
 ];
 

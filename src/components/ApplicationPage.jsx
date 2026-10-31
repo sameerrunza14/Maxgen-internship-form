@@ -8,7 +8,7 @@ import EducationStep from './steps/EducationStep';
 import InternshipStep from './steps/InternshipStep';
 import DocumentsStep from './steps/DocumentsStep';
 import ReviewStep from './steps/ReviewStep';
-import { STEPS, MAX_FILE_SIZE_MB } from '../constants/formOptions';
+import { STEPS } from '../constants/formOptions';
 import { validateField, validateStep, findFirstStepWithError } from '../utils/validation';
 import { submitApplication } from '../services/applicationApi';
 
@@ -377,7 +377,7 @@ function ApplicationPage() {
                     </li>
                   </ul>
                   <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
-                    Max {MAX_FILE_SIZE_MB} MB per file
+                    Up to 500 KB per file (photo 200 KB)
                   </p>
                 </div>
               </aside>
