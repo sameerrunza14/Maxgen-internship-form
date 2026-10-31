@@ -2,6 +2,7 @@ import { TextInput } from '../ui/Inputs';
 import { ChoiceCards } from '../ui/ChoiceCards';
 import {
   TECHNOLOGIES,
+  MAX_TECHNOLOGIES,
   DURATIONS,
   LETTER_TYPES,
   YES_NO,
@@ -19,27 +20,35 @@ function InternshipStep({ values, errors, onChange, onValueChange, onBlur }) {
     <div className="space-y-7 sm:space-y-8">
       <ChoiceCards
         label="Technology"
-        name="technology"
+        name="technologies"
+        multiple
+        maxSelected={MAX_TECHNOLOGIES}
         required
         compact
         hideDescriptionOnMobile
+        hint={
+          'Select up to ' + MAX_TECHNOLOGIES + ' technologies.' +
+          (values.technologies.length > 0 ? ' Selected: ' + values.technologies.length + ' of ' + MAX_TECHNOLOGIES + '.' : '')
+        }
         gridClass="grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-3"
         options={TECHNOLOGIES}
-        value={values.technology}
-        error={errors.technology}
+        value={values.technologies}
+        error={errors.technologies}
         onChange={onValueChange}
       />
 
       <ChoiceCards
         label="Duration"
-        name="duration"
+        name="durations"
+        multiple
         required
         compact
         hideDescriptionOnMobile
+        hint="Select one or more durations that suit you."
         gridClass="grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3"
         options={DURATIONS}
-        value={values.duration}
-        error={errors.duration}
+        value={values.durations}
+        error={errors.durations}
         onChange={onValueChange}
       />
 

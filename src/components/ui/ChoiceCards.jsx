@@ -60,7 +60,11 @@ export function ChoiceCards({
   hideDescriptionOnMobile,
   centerOnMobile,
   className,
+  maxSelected,
 }) {
+  // multiple + maxSelected: once the limit is reached, the other cards cannot be picked
+  const limitReached = Boolean(multiple && maxSelected && value.length >= maxSelected);
+
   function isSelected(optionValue) {
     if (multiple) {
       return value.includes(optionValue);
@@ -99,12 +103,14 @@ export function ChoiceCards({
       >
         {options.map(function (option) {
           const selected = isSelected(option.value);
+          const isDisabled = limitReached && !selected;
           return (
             <label
               key={option.value}
               className={
                 getCardClass(selected, Boolean(error), compact) +
-                (centerOnMobile ? 'max-sm:justify-center max-sm:px-1.5 max-sm:text-center ' : '')
+                (centerOnMobile ? 'max-sm:justify-center max-sm:px-1.5 max-sm:text-center ' : '') +
+                (isDisabled ? 'cursor-not-allowed opacity-45 hover:border-slate-200 hover:bg-white ' : '')
               }
             >
               <input
@@ -112,6 +118,7 @@ export function ChoiceCards({
                 name={name}
                 value={option.value}
                 checked={selected}
+                disabled={isDisabled}
                 onChange={function () {
                   handleChange(option.value);
                 }}

@@ -1,4 +1,4 @@
-import { DOCUMENTS } from '../constants/formOptions';
+import { DOCUMENTS, MAX_TECHNOLOGIES } from '../constants/formOptions';
 
 const NAME_PATTERN = /^[A-Za-z][A-Za-z .'-]*$/;
 const PHONE_PATTERN = /^[6-9]\d{9}$/;
@@ -8,7 +8,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export const STEP_FIELDS = [
   ['fullName', 'email', 'contactNumber', 'parentContactNumber', 'gender', 'address'],
   ['qualification', 'qualificationOther', 'specialization', 'institute', 'semester', 'passoutYear'],
-  ['technology', 'duration', 'letters', 'location', 'mode', 'projectIncluded', 'referenceSource', 'referenceDetail'],
+  ['technologies', 'durations', 'letters', 'location', 'mode', 'projectIncluded', 'referenceSource', 'referenceDetail'],
   ['idProof', 'collegeId', 'resume', 'photo'],
   ['declarationAccepted'],
 ];
@@ -105,11 +105,13 @@ export function validateField(name, values, files) {
     case 'passoutYear':
       return value ? '' : 'Please select your passout year.';
 
-    case 'technology':
-      return value ? '' : 'Please select a technology.';
+    case 'technologies':
+      if (values.technologies.length === 0) return 'Please select at least one technology.';
+      if (values.technologies.length > MAX_TECHNOLOGIES) return 'You can select up to ' + MAX_TECHNOLOGIES + ' technologies.';
+      return '';
 
-    case 'duration':
-      return value ? '' : 'Please select a duration.';
+    case 'durations':
+      return values.durations.length > 0 ? '' : 'Please select at least one duration.';
 
     case 'letters':
       return values.letters.length > 0 ? '' : 'Please select at least one letter.';

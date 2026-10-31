@@ -38,18 +38,11 @@ export function TopBar() {
   );
 }
 
-// The three things that happen after a student applies (a real sequence, so it is numbered)
-const HOW_IT_WORKS = [
-  { title: 'Fill this form', text: 'About 5 minutes, on your phone or laptop.' },
-  { title: 'Our HR team calls you', text: 'We check your details and discuss your track.' },
-  { title: 'Get your offer letter', text: 'Join online, at our office, or both.' },
-];
-
 /**
  * The 14 technologies written large and slanted behind the hero, like the strokes of the Maxgen "M".
- * The one the student picks in the form lights up in red.
+ * The ones the student picks in the form light up in red.
  */
-function TechnologyWall({ selectedTechnology }) {
+function TechnologyWall({ selectedTechnologies }) {
   return (
     <div
       className="pointer-events-none absolute inset-y-0 right-0 w-full overflow-hidden opacity-60 [mask-image:linear-gradient(to_right,transparent_0%,black_60%)] lg:w-[46%] lg:opacity-100 lg:[mask-image:linear-gradient(to_right,transparent_0%,black_22%)]"
@@ -57,7 +50,7 @@ function TechnologyWall({ selectedTechnology }) {
     >
       <ul className="absolute -right-24 -top-10 flex w-[680px] -rotate-[14deg] flex-wrap content-start gap-x-6 gap-y-1 sm:-right-10 lg:-right-16 lg:top-4">
         {TECHNOLOGIES.map(function (technology, index) {
-          const isSelected = technology.value === selectedTechnology;
+          const isSelected = selectedTechnologies.includes(technology.value);
           let className = 'whitespace-nowrap text-[40px] font-extrabold leading-[1.15] tracking-tight transition-colors duration-500 ';
 
           if (isSelected) {
@@ -80,36 +73,25 @@ function TechnologyWall({ selectedTechnology }) {
   );
 }
 
-export function Hero({ selectedTechnology }) {
+export function Hero({ selectedTechnologies }) {
+  // Kept short on purpose, so the form starts high on the screen (most students use a phone)
   return (
     <div className="relative overflow-hidden bg-brand-700">
-      <TechnologyWall selectedTechnology={selectedTechnology} />
+      <TechnologyWall selectedTechnologies={selectedTechnologies} />
 
-      <div className="relative mx-auto max-w-6xl px-4 pb-24 pt-7 sm:px-6 sm:pb-32 sm:pt-14">
-        <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[13px] font-medium text-white/90 ring-1 ring-white/15">
+      <div className="relative mx-auto max-w-6xl px-4 pb-20 pt-5 sm:px-6 sm:pb-24 sm:pt-8">
+        <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/90 ring-1 ring-white/15 sm:text-[13px]">
           <span className="h-1.5 w-1.5 rounded-full bg-accent-500" />
           Applications open for {CURRENT_YEAR}
         </p>
 
-        <h1 className="mt-4 max-w-xl text-[28px] font-extrabold leading-[1.1] tracking-tight text-white sm:text-[44px]">
+        <h1 className="mt-3 max-w-xl text-2xl sm:max-w-3xl font-extrabold leading-tight tracking-tight text-white sm:text-[34px]">
           Learn by building real software at Maxgen.
         </h1>
-        <p className="mt-3 max-w-md text-[15px] leading-relaxed text-brand-100 sm:text-base">
-          Choose from 14 technologies and intern online, offline at our Ahmedabad, Pune or Mumbai office, or in
-          hybrid mode. Apply below in about 5 minutes.
+        <p className="mt-2 max-w-lg text-sm sm:max-w-2xl leading-relaxed text-brand-100 sm:text-[15px]">
+          14 technologies · Online, offline or hybrid · Ahmedabad, Pune &amp; Mumbai.
+          <span className="hidden sm:inline"> Apply below in about 5 minutes.</span>
         </p>
-
-        <ol className="mt-8 hidden max-w-[600px] gap-6 sm:grid sm:grid-cols-3">
-          {HOW_IT_WORKS.map(function (step, index) {
-            return (
-              <li key={step.title} className="border-t border-white/20 pt-3">
-                <span className="text-sm font-bold text-accent-500">{index + 1}</span>
-                <p className="mt-1 text-[15px] font-semibold text-white">{step.title}</p>
-                <p className="mt-0.5 text-[13px] leading-snug text-brand-200">{step.text}</p>
-              </li>
-            );
-          })}
-        </ol>
       </div>
     </div>
   );

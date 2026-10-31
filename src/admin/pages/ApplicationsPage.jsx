@@ -381,15 +381,15 @@ function ApplicationsPage() {
                   {items.map(function (item) {
                     return (
                       <tr
-                        key={item._id}
+                        key={item.id}
                         onClick={function () {
-                          navigate('/admin/applications/' + item._id);
+                          navigate('/admin/applications/' + item.id);
                         }}
                         className="cursor-pointer transition-colors hover:bg-brand-50/50"
                       >
                         <td className="px-4 py-3">
                           <Link
-                            to={'/admin/applications/' + item._id}
+                            to={'/admin/applications/' + item.id}
                             onClick={function (event) {
                               event.stopPropagation();
                             }}
@@ -401,11 +401,11 @@ function ApplicationsPage() {
                             {formatPhone(item.contactNumber)} · {item.referenceNo}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-700">{item.technology}</td>
+                        <td className="px-4 py-3 text-slate-700">{item.technologies.join(', ')}</td>
                         <td className="px-4 py-3 text-slate-700">
                           {item.location} · {item.mode}
                         </td>
-                        <td className="hidden px-4 py-3 text-slate-700 lg:table-cell">{item.duration}</td>
+                        <td className="hidden px-4 py-3 text-slate-700 lg:table-cell">{item.durations.join(', ')}</td>
                         <td className="whitespace-nowrap px-4 py-3 text-slate-700">{formatDate(item.createdAt)}</td>
                         <td className="px-4 py-3">
                           <StatusBadge status={item.status} />
@@ -421,9 +421,9 @@ function ApplicationsPage() {
             <ul className="space-y-3 md:hidden">
               {items.map(function (item) {
                 return (
-                  <li key={item._id}>
+                  <li key={item.id}>
                     <Link
-                      to={'/admin/applications/' + item._id}
+                      to={'/admin/applications/' + item.id}
                       className="block rounded-xl border border-slate-200 bg-white p-4 transition active:bg-slate-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/20"
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -433,9 +433,9 @@ function ApplicationsPage() {
                         </div>
                         <StatusBadge status={item.status} />
                       </div>
-                      <p className="mt-3 text-sm font-medium text-slate-800">{item.technology}</p>
+                      <p className="mt-3 text-sm font-medium text-slate-800">{item.technologies.join(', ')}</p>
                       <p className="mt-0.5 text-[13px] text-slate-500">
-                        {item.location} · {item.mode} · {item.duration}
+                        {item.location} · {item.mode} · {item.durations.join(', ')}
                       </p>
                       <p className="mt-2 text-xs text-slate-400">
                         {item.referenceNo} · Applied {formatDate(item.createdAt)}

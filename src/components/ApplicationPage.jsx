@@ -31,8 +31,8 @@ const EMPTY_VALUES = {
   semester: '',
   passoutYear: '',
   // Internship details
-  technology: '',
-  duration: '',
+  technologies: [],
+  durations: [],
   letters: [],
   projectIncluded: '',
   location: '',
@@ -61,6 +61,19 @@ function loadDraft() {
     }
     if (!Array.isArray(values.letters)) {
       values.letters = [];
+    }
+    if (!Array.isArray(values.technologies)) {
+      values.technologies = [];
+    }
+    if (!Array.isArray(values.durations)) {
+      values.durations = [];
+    }
+    // Drafts saved before multi-select had one technology / duration as text
+    if (values.technologies.length === 0 && typeof parsed.technology === 'string' && parsed.technology) {
+      values.technologies = [parsed.technology];
+    }
+    if (values.durations.length === 0 && typeof parsed.duration === 'string' && parsed.duration) {
+      values.durations = [parsed.duration];
     }
     values.declarationAccepted = false;
     return values;
@@ -342,9 +355,9 @@ function ApplicationPage() {
         </div>
       )}
       <TopBar />
-      <Hero selectedTechnology={values.technology} />
+      <Hero selectedTechnologies={values.technologies} />
 
-      <main className="relative z-10 mx-auto -mt-[72px] max-w-6xl px-3 sm:-mt-24 sm:px-6">
+      <main className="relative z-10 mx-auto -mt-14 max-w-6xl px-3 sm:-mt-16 sm:px-6">
         <div
           ref={cardRef}
           className="scroll-mt-20 overflow-hidden sm:scroll-mt-24 rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_20px_50px_-24px_rgba(20,33,64,0.35)] ring-1 ring-slate-200/70"

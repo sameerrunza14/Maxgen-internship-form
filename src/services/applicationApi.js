@@ -32,8 +32,12 @@ export function buildApplicationFormData(values, files) {
   formData.append('semester', values.semester); // '1' to '10'
   formData.append('passoutYear', values.passoutYear);
 
-  formData.append('technology', values.technology);
-  formData.append('duration', values.duration);
+  for (let i = 0; i < values.technologies.length; i++) {
+    formData.append('technologies', values.technologies[i]);
+  }
+  for (let i = 0; i < values.durations.length; i++) {
+    formData.append('durations', values.durations[i]);
+  }
   for (let i = 0; i < values.letters.length; i++) {
     formData.append('letters', values.letters[i]);
   }

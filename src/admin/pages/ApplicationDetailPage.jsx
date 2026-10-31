@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import StatusBadge from '../components/StatusBadge';
 import { getApplication, updateStatus, openDocument, addNote, SessionExpiredError } from '../adminApi';
-import { formatDate, formatDateTime, formatPhone, formatFileSize } from '../formatters';
+import { formatDateTime, formatPhone, formatFileSize } from '../formatters';
 import { DOCUMENTS } from '../../constants/formOptions';
 
 function Section({ title, children }) {
@@ -203,7 +203,7 @@ function ApplicationDetailPage() {
             {app.referenceNo} · Applied {formatDateTime(app.createdAt)}
           </p>
           <p className="mt-3 text-[15px] font-semibold text-brand-800">
-            {app.technology} · {app.duration} · {app.location} ({app.mode})
+            {app.technologies.join(', ')} · {app.durations.join(', ')} · {app.location} ({app.mode})
           </p>
           {app.reviewedBy && app.status !== 'pending' && (
             <p className="mt-2 text-[13px] text-slate-500">
@@ -370,8 +370,8 @@ function ApplicationDetailPage() {
 
           <Section title="Internship details">
             <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-              <Detail label="Technology" value={app.technology} />
-              <Detail label="Duration" value={app.duration} />
+              <Detail label={app.technologies.length > 1 ? 'Technologies' : 'Technology'} value={app.technologies.join(', ')} />
+              <Detail label={app.durations.length > 1 ? 'Durations' : 'Duration'} value={app.durations.join(', ')} />
               <Detail label="Location" value={app.location} />
               <Detail label="Mode" value={app.mode} />
               <Detail label="Project included" value={app.projectIncluded ? 'Yes' : 'No'} />
@@ -419,7 +419,7 @@ function ApplicationDetailPage() {
                   .reverse()
                   .map(function (note) {
                     return (
-                      <li key={note._id} className="rounded-lg bg-slate-50 px-3 py-2.5">
+                      <li key={note.id} className="rounded-lg bg-slate-50 px-3 py-2.5">
                         <p className="whitespace-pre-line break-words text-sm text-slate-800">{note.text}</p>
                         <p className="mt-1 text-xs text-slate-500">
                           {note.authorName} · {formatDateTime(note.createdAt)}
@@ -432,23 +432,13 @@ function ApplicationDetailPage() {
           </Section>
 
           <Section title="Documents">
-            {app.documentsDeletedAt && (
-              <p className="mb-3 rounded-lg bg-slate-100 px-3 py-2.5 text-[13px] leading-snug text-slate-600">
-                The files were deleted on {formatDate(app.documentsDeletedAt)} by the automatic cleanup of old rejected
-                applications. The details below are kept for the record.
-              </p>
-            )}
             <ul className="space-y-3">
               {DOCUMENTS.map(function (documentConfig) {
                 const saved = app.documents ? app.documents[documentConfig.name] : null;
                 return (
                   <li key={documentConfig.name} className="rounded-lg border border-slate-200 p-3">
                     <p className="text-sm font-semibold text-slate-900">{documentConfig.label}</p>
-                    {saved && app.documentsDeletedAt ? (
-                      <p className="mt-0.5 truncate text-[13px] text-slate-400" title={saved.originalName}>
-                        {saved.originalName} · deleted
-                      </p>
-                    ) : saved ? (
+                    {saved ? (
                       <>
                         <p className="mt-0.5 truncate text-[13px] text-slate-500" title={saved.originalName}>
                           {saved.originalName} · {formatFileSize(saved.size)}

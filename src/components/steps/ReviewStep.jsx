@@ -85,8 +85,8 @@ function ReviewStep({ values, files, errors, onValueChange, onEdit }) {
         stepIndex={2}
         onEdit={onEdit}
         rows={[
-          { label: 'Technology', value: values.technology },
-          { label: 'Duration', value: values.duration },
+          { label: 'Technology', value: values.technologies.join(', '), wide: true },
+          { label: 'Duration', value: values.durations.join(', '), wide: true },
           { label: 'Location', value: values.location },
           { label: 'Mode', value: values.mode },
           { label: 'Project included', value: values.projectIncluded === 'yes' ? 'Yes' : values.projectIncluded === 'no' ? 'No' : '' },

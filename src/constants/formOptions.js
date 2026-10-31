@@ -24,6 +24,9 @@ export const YES_NO = [
   { value: 'no', label: 'No' },
 ];
 
+// A student can choose up to this many technologies (keep in sync with the backend)
+export const MAX_TECHNOLOGIES = 3;
+
 export const TECHNOLOGIES = [
   { value: 'Software Testing (QA)', label: 'Software Testing (QA)', description: 'Manual & automation testing' },
   { value: 'MERN Stack / Full Stack', label: 'MERN / Full Stack', description: 'MongoDB, Express, React, Node' },
