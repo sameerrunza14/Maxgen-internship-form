@@ -7,7 +7,7 @@ const QUESTIONS = [
   },
   {
     question: 'Which documents do I need?',
-    answer: `Your Aadhaar or PAN card and your resume as a PDF. College ID and a passport size photo are optional. Files can be up to 500 KB (photo 200 KB) — large photos are resized for you automatically.`,
+    answer: `Your Aadhaar or PAN card, your college ID card and your resume as a PDF. A passport size photo is optional. Files can be up to 500 KB (photo 200 KB) — large photos are resized for you automatically.`,
   },
   {
     question: 'Is the internship online or offline?',

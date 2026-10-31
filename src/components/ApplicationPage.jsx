@@ -8,7 +8,7 @@ import EducationStep from './steps/EducationStep';
 import InternshipStep from './steps/InternshipStep';
 import DocumentsStep from './steps/DocumentsStep';
 import ReviewStep from './steps/ReviewStep';
-import { STEPS } from '../constants/formOptions';
+import { STEPS, getPassoutYearOptions } from '../constants/formOptions';
 import { validateField, validateStep, findFirstStepWithError } from '../utils/validation';
 import { submitApplication } from '../services/applicationApi';
 import { IS_DEMO_MODE } from '../config/demoMode';
@@ -61,6 +61,17 @@ function loadDraft() {
     }
     if (!Array.isArray(values.letters)) {
       values.letters = [];
+    }
+    // A passout year saved earlier may now be outside the allowed years: ask again
+    const allowedYears = getPassoutYearOptions();
+    let isYearAllowed = false;
+    for (let i = 0; i < allowedYears.length; i++) {
+      if (allowedYears[i].value === values.passoutYear) {
+        isYearAllowed = true;
+      }
+    }
+    if (!isYearAllowed) {
+      values.passoutYear = '';
     }
     if (!Array.isArray(values.technologies)) {
       values.technologies = [];
@@ -384,11 +395,11 @@ function ApplicationPage() {
                     </li>
                     <li className="flex gap-2">
                       <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500" />
-                      Resume in PDF format
+                      College ID card
                     </li>
                     <li className="flex gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
-                      College ID card (optional)
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500" />
+                      Resume in PDF format
                     </li>
                     <li className="flex gap-2">
                       <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />

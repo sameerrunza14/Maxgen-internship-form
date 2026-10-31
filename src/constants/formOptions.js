@@ -106,7 +106,7 @@ export const DOCUMENTS = [
   {
     name: 'collegeId',
     label: 'College ID Card',
-    required: false,
+    required: true,
     accept: '.pdf,.jpg,.jpeg,.png',
     allowedTypes: ['application/pdf', 'image/jpeg', 'image/png'],
     allowedLabel: 'PDF, JPG or PNG',
@@ -157,11 +157,15 @@ export function getSemesterOptions() {
   return options;
 }
 
-// Passout year options: this year and the next 10 years (e.g. 2026 to 2036)
+// Passout year: from this year up to this many years ahead (keep the same as the backend)
+export const PASSOUT_YEARS_AHEAD = 5;
+
+// Passout year options: this year and the next 5 years (e.g. 2026 to 2031). Past years are never shown.
+// The list moves forward by itself every new year.
 export function getPassoutYearOptions() {
   const currentYear = new Date().getFullYear();
   const options = [];
-  for (let year = currentYear; year <= currentYear + 10; year++) {
+  for (let year = currentYear; year <= currentYear + PASSOUT_YEARS_AHEAD; year++) {
     options.push({ value: String(year), label: String(year) });
   }
   return options;

@@ -1,4 +1,4 @@
-import { DOCUMENTS, MAX_TECHNOLOGIES } from '../constants/formOptions';
+import { DOCUMENTS, MAX_TECHNOLOGIES, PASSOUT_YEARS_AHEAD } from '../constants/formOptions';
 
 const NAME_PATTERN = /^[A-Za-z][A-Za-z .'-]*$/;
 const PHONE_PATTERN = /^[6-9]\d{9}$/;
@@ -102,8 +102,15 @@ export function validateField(name, values, files) {
     case 'semester':
       return value ? '' : 'Please select your current semester.';
 
-    case 'passoutYear':
-      return value ? '' : 'Please select your passout year.';
+    case 'passoutYear': {
+      if (!value) return 'Please select your passout year.';
+      const currentYear = new Date().getFullYear();
+      const year = Number(value);
+      if (year < currentYear || year > currentYear + PASSOUT_YEARS_AHEAD) {
+        return 'Passout year must be between ' + currentYear + ' and ' + (currentYear + PASSOUT_YEARS_AHEAD) + '.';
+      }
+      return '';
+    }
 
     case 'technologies':
       if (values.technologies.length === 0) return 'Please select at least one technology.';
