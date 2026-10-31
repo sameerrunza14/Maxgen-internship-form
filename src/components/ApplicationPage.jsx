@@ -11,6 +11,7 @@ import ReviewStep from './steps/ReviewStep';
 import { STEPS } from '../constants/formOptions';
 import { validateField, validateStep, findFirstStepWithError } from '../utils/validation';
 import { submitApplication } from '../services/applicationApi';
+import { IS_DEMO_MODE } from '../config/demoMode';
 
 const DRAFT_KEY = 'maxgen-internship-draft';
 
@@ -335,6 +336,11 @@ function ApplicationPage() {
 
   return (
     <div className="min-h-screen">
+      {IS_DEMO_MODE && (
+        <div className="bg-amber-100 px-4 py-2 text-center text-[13px] font-medium text-amber-900">
+          Demo preview — applications submitted here are not saved.
+        </div>
+      )}
       <TopBar />
       <Hero selectedTechnology={values.technology} />
 

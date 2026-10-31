@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import StatusBadge from '../components/StatusBadge';
-import { getApplication, updateStatus, openDocument, SessionExpiredError } from '../adminApi';
-import { formatDateTime, formatPhone, formatFileSize } from '../formatters';
+import { getApplication, updateStatus, openDocument, addNote, SessionExpiredError } from '../adminApi';
+import { formatDate, formatDateTime, formatPhone, formatFileSize } from '../formatters';
 import { DOCUMENTS } from '../../constants/formOptions';
 
 function Section({ title, children }) {
@@ -46,7 +46,35 @@ function ApplicationDetailPage() {
   const [actionError, setActionError] = useState('');
   const [savingStatus, setSavingStatus] = useState('');
   const [confirmStatus, setConfirmStatus] = useState(''); // 'accepted' or 'rejected' while asking "Are you sure?"
+  const [sendStatusEmail, setSendStatusEmail] = useState(true); // the "Email the student" tick box
+  const [statusMessage, setStatusMessage] = useState({ text: '', isWarning: false });
   const [openingDocument, setOpeningDocument] = useState('');
+  const [noteText, setNoteText] = useState('');
+  const [noteError, setNoteError] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+
+  async function handleAddNote(event) {
+    event.preventDefault();
+    if (!noteText.trim()) {
+      setNoteError('Please write a note.');
+      return;
+    }
+    setIsSavingNote(true);
+    setNoteError('');
+    try {
+      const updated = await addNote(id, noteText.trim());
+      setApplication(updated);
+      setNoteText('');
+    } catch (error) {
+      if (error instanceof SessionExpiredError) {
+        handleError(error, setNoteError);
+      } else {
+        setNoteError(error.fieldErrors && error.fieldErrors.note ? error.fieldErrors.note : error.message);
+      }
+    } finally {
+      setIsSavingNote(false);
+    }
+  }
 
   function handleError(error, setMessage) {
     if (error instanceof SessionExpiredError) {
@@ -78,13 +106,27 @@ function ApplicationDetailPage() {
     [id]
   );
 
-  async function changeStatus(status) {
+  // Opens the "Are you sure?" box. The email box is ticked, unless this same email was already sent before.
+  function askToConfirm(status) {
+    const alreadyEmailed = application.lastStatusEmail && application.lastStatusEmail.status === status;
+    setSendStatusEmail(!alreadyEmailed);
+    setStatusMessage({ text: '', isWarning: false });
+    setConfirmStatus(status);
+  }
+
+  async function changeStatus(status, sendEmail) {
     setSavingStatus(status);
     setActionError('');
+    setStatusMessage({ text: '', isWarning: false });
     try {
-      const updated = await updateStatus(id, status);
-      setApplication(updated);
+      const result = await updateStatus(id, status, sendEmail);
+      setApplication(result.application);
       setConfirmStatus('');
+      if (result.emailResult === 'sent') {
+        setStatusMessage({ text: 'Email sent to ' + result.application.email + '.', isWarning: false });
+      } else if (result.emailResult === 'failed' || result.emailResult === 'off') {
+        setStatusMessage({ text: result.message, isWarning: true });
+      }
     } catch (error) {
       handleError(error, setActionError);
     } finally {
@@ -168,6 +210,12 @@ function ApplicationDetailPage() {
               Marked {app.status} by {app.reviewedBy.name} on {formatDateTime(app.reviewedAt)}
             </p>
           )}
+          {app.lastStatusEmail && (
+            <p className="mt-1 text-[13px] text-slate-500">
+              ✉ &quot;{app.lastStatusEmail.status === 'accepted' ? 'Accepted' : 'Not selected'}&quot; email sent to the student on{' '}
+              {formatDateTime(app.lastStatusEmail.sentAt)}
+            </p>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
             <ContactButton href={'tel:+91' + app.contactNumber} label="Call">
               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M2 3.5A1.5 1.5 0 013.5 2h1.15a1.5 1.5 0 011.46 1.14l.57 2.3a1.5 1.5 0 01-.43 1.45l-1.1 1.04a11.04 11.04 0 004.92 4.92l1.04-1.1a1.5 1.5 0 011.45-.43l2.3.57A1.5 1.5 0 0118 13.35v1.15A1.5 1.5 0 0116.5 16h-1C8.04 16 2 9.96 2 2.5v1z" clipRule="evenodd" /></svg>
@@ -188,13 +236,33 @@ function ApplicationDetailPage() {
               <p className="text-sm font-semibold text-slate-900">
                 {confirmStatus === 'accepted' ? 'Accept this application?' : 'Reject this application?'}
               </p>
-              <p className="mt-1 text-[13px] text-slate-500">You can change this later.</p>
+              <p className="mt-1 text-[13px] text-slate-500">You can change the status later, but an email cannot be taken back.</p>
+              <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg bg-white px-3 py-2.5 ring-1 ring-slate-200">
+                <input
+                  type="checkbox"
+                  checked={sendStatusEmail}
+                  onChange={function (event) {
+                    setSendStatusEmail(event.target.checked);
+                  }}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-brand-700"
+                />
+                <span className="text-[13px] leading-snug text-slate-700">
+                  <span className="font-semibold text-slate-900">Email the student</span>
+                  <br />
+                  {confirmStatus === 'accepted'
+                    ? 'Congratulations email with the next steps.'
+                    : 'Polite "not selected this time" email.'}
+                  {app.lastStatusEmail && app.lastStatusEmail.status === confirmStatus && (
+                    <span className="mt-1 block text-amber-700">This email was already sent once.</span>
+                  )}
+                </span>
+              </label>
               <div className="mt-3 flex gap-2">
                 <button
                   type="button"
                   disabled={savingStatus !== ''}
                   onClick={function () {
-                    changeStatus(confirmStatus);
+                    changeStatus(confirmStatus, sendStatusEmail);
                   }}
                   className={
                     'flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-70 ' +
@@ -221,7 +289,7 @@ function ApplicationDetailPage() {
                 <button
                   type="button"
                   onClick={function () {
-                    setConfirmStatus('accepted');
+                    askToConfirm('accepted');
                   }}
                   className="rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-600/30"
                 >
@@ -232,7 +300,7 @@ function ApplicationDetailPage() {
                 <button
                   type="button"
                   onClick={function () {
-                    setConfirmStatus('rejected');
+                    askToConfirm('rejected');
                   }}
                   className="rounded-lg border border-accent-500 bg-white px-4 py-3 text-sm font-semibold text-accent-600 transition hover:bg-accent-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-accent-500/20"
                 >
@@ -244,7 +312,7 @@ function ApplicationDetailPage() {
                   type="button"
                   disabled={savingStatus !== ''}
                   onClick={function () {
-                    changeStatus('pending');
+                    changeStatus('pending', false);
                   }}
                   className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-60"
                 >
@@ -255,6 +323,20 @@ function ApplicationDetailPage() {
           )}
         </div>
       </div>
+
+      {statusMessage.text && (
+        <div
+          role="status"
+          className={
+            'mt-4 rounded-lg border px-4 py-3 text-sm ' +
+            (statusMessage.isWarning
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-800')
+          }
+        >
+          {statusMessage.text}
+        </div>
+      )}
 
       {actionError && (
         <div role="alert" className="mt-4 rounded-lg border border-accent-100 bg-accent-50 px-4 py-3 text-sm text-accent-600">
@@ -300,14 +382,73 @@ function ApplicationDetailPage() {
         </div>
 
         <div className="space-y-5">
+          <Section title={'HR notes' + (app.notes.length > 0 ? ' (' + app.notes.length + ')' : '')}>
+            <form onSubmit={handleAddNote}>
+              <label htmlFor="note" className="sr-only">
+                Add a note
+              </label>
+              <textarea
+                id="note"
+                rows={2}
+                maxLength={500}
+                value={noteText}
+                onChange={function (event) {
+                  setNoteText(event.target.value);
+                  setNoteError('');
+                }}
+                placeholder="e.g. Called, will join on Monday"
+                className="block w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-base text-slate-900 placeholder:text-slate-400 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15 sm:text-sm"
+              />
+              {noteError && <p role="alert" className="mt-1.5 text-[13px] font-medium text-accent-600">{noteError}</p>}
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <span className="text-xs text-slate-400">{noteText.length}/500</span>
+                <button
+                  type="submit"
+                  disabled={isSavingNote}
+                  className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-800 disabled:opacity-60"
+                >
+                  {isSavingNote ? 'Saving…' : 'Add note'}
+                </button>
+              </div>
+            </form>
+
+            {app.notes.length > 0 && (
+              <ol className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+                {app.notes
+                  .slice()
+                  .reverse()
+                  .map(function (note) {
+                    return (
+                      <li key={note._id} className="rounded-lg bg-slate-50 px-3 py-2.5">
+                        <p className="whitespace-pre-line break-words text-sm text-slate-800">{note.text}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {note.authorName} · {formatDateTime(note.createdAt)}
+                        </p>
+                      </li>
+                    );
+                  })}
+              </ol>
+            )}
+          </Section>
+
           <Section title="Documents">
+            {app.documentsDeletedAt && (
+              <p className="mb-3 rounded-lg bg-slate-100 px-3 py-2.5 text-[13px] leading-snug text-slate-600">
+                The files were deleted on {formatDate(app.documentsDeletedAt)} by the automatic cleanup of old rejected
+                applications. The details below are kept for the record.
+              </p>
+            )}
             <ul className="space-y-3">
               {DOCUMENTS.map(function (documentConfig) {
                 const saved = app.documents ? app.documents[documentConfig.name] : null;
                 return (
                   <li key={documentConfig.name} className="rounded-lg border border-slate-200 p-3">
                     <p className="text-sm font-semibold text-slate-900">{documentConfig.label}</p>
-                    {saved ? (
+                    {saved && app.documentsDeletedAt ? (
+                      <p className="mt-0.5 truncate text-[13px] text-slate-400" title={saved.originalName}>
+                        {saved.originalName} · deleted
+                      </p>
+                    ) : saved ? (
                       <>
                         <p className="mt-0.5 truncate text-[13px] text-slate-500" title={saved.originalName}>
                           {saved.originalName} · {formatFileSize(saved.size)}

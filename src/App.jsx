@@ -14,6 +14,15 @@ const ApplicationsPage = lazy(function () {
 const ApplicationDetailPage = lazy(function () {
   return import('./admin/pages/ApplicationDetailPage.jsx');
 });
+const ChangePasswordPage = lazy(function () {
+  return import('./admin/pages/ChangePasswordPage.jsx');
+});
+const ForgotPasswordPage = lazy(function () {
+  return import('./admin/pages/ForgotPasswordPage.jsx');
+});
+const ResetPasswordPage = lazy(function () {
+  return import('./admin/pages/ResetPasswordPage.jsx');
+});
 
 function PageLoading() {
   return <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Loading…</div>;
@@ -28,6 +37,8 @@ function App() {
 
         {/* Admin panel */}
         <Route path="/admin/login" element={<LoginPage />} />
+        <Route path="/admin/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/admin/reset-password" element={<ResetPasswordPage />} />
         <Route
           path="/admin"
           element={
@@ -41,6 +52,15 @@ function App() {
           element={
             <RequireAdmin>
               <ApplicationDetailPage />
+            </RequireAdmin>
+          }
+        />
+
+        <Route
+          path="/admin/password"
+          element={
+            <RequireAdmin>
+              <ChangePasswordPage />
             </RequireAdmin>
           }
         />

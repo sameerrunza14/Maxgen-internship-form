@@ -24,15 +24,29 @@ function AdminLayout({ children }) {
             </span>
           </Link>
 
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <span className="hidden text-right text-sm leading-tight sm:block">
               <span className="block font-semibold text-slate-800">{admin.name}</span>
               <span className="block text-xs text-slate-500">{admin.email}</span>
             </span>
+            <Link
+              to="/admin/password"
+              title="Change password"
+              aria-label="Change password"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 text-slate-600 transition hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/20"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path
+                  fillRule="evenodd"
+                  d="M8 7a5 5 0 113.61 4.81l-1.08 1.08a.75.75 0 01-.53.22H8.75v1.14a.75.75 0 01-.75.75H6.86v1.25a.75.75 0 01-.75.75H3.75A.75.75 0 013 16.25v-2.36c0-.2.08-.39.22-.53l4.97-4.97A5 5 0 018 7zm5-1.5a1 1 0 100-2 1 1 0 000 2z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </Link>
             <button
               type="button"
               onClick={handleSignOut}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/20"
+              className="h-9 rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/20"
             >
               Sign out
             </button>

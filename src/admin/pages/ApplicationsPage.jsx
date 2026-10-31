@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import StatusBadge from '../components/StatusBadge';
-import { listApplications, getStats, SessionExpiredError } from '../adminApi';
+import { listApplications, getStats, downloadExcel, SessionExpiredError } from '../adminApi';
 import { formatDate, formatPhone } from '../formatters';
 import { TECHNOLOGIES, LOCATIONS, INTERNSHIP_MODES } from '../../constants/formOptions';
+import { DATE_PERIODS, getDateRange, describeRange, toDateText } from '../dateRanges';
 
 const STATUS_TABS = [
   { value: '', label: 'All', statKey: 'total' },
@@ -56,6 +57,24 @@ function ApplicationsPage() {
     location: searchParams.get('location') || '',
     mode: searchParams.get('mode') || '',
     search: searchParams.get('search') || '',
+    period: searchParams.get('period') || '', // '', today, yesterday, week, month, lastMonth, custom
+    customFrom: searchParams.get('from') || '',
+    customTo: searchParams.get('to') || '',
+  };
+
+  // The real dates for the chosen period, e.g. { from: '2026-10-25', to: '2026-10-31' }
+  const dateRange = getDateRange(filters.period, filters.customFrom, filters.customTo);
+
+  // What is sent to the server (list and Excel)
+  const requestFilters = {
+    page: filters.page,
+    status: filters.status,
+    technology: filters.technology,
+    location: filters.location,
+    mode: filters.mode,
+    search: filters.search,
+    from: dateRange.from,
+    to: dateRange.to,
   };
 
   const [searchText, setSearchText] = useState(filters.search);
@@ -63,6 +82,19 @@ function ApplicationsPage() {
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  async function handleDownload() {
+    setIsDownloading(true);
+    setError('');
+    try {
+      await downloadExcel(requestFilters);
+    } catch (downloadError) {
+      handleError(downloadError);
+    } finally {
+      setIsDownloading(false);
+    }
+  }
 
   function updateFilter(name, value) {
     const next = new URLSearchParams(searchParams);
@@ -73,6 +105,25 @@ function ApplicationsPage() {
     }
     if (name !== 'page') {
       next.delete('page'); // a new filter starts again from page 1
+    }
+    setSearchParams(next);
+  }
+
+  // Choosing a period. "Custom dates" starts with the last 7 days, which the admin can then change.
+  function changePeriod(value) {
+    const next = new URLSearchParams(searchParams);
+    next.delete('page');
+    next.delete('from');
+    next.delete('to');
+    if (value) {
+      next.set('period', value);
+    } else {
+      next.delete('period');
+    }
+    if (value === 'custom') {
+      const lastWeek = getDateRange('week');
+      next.set('from', lastWeek.from);
+      next.set('to', lastWeek.to);
     }
     setSearchParams(next);
   }
@@ -106,11 +157,15 @@ function ApplicationsPage() {
     [searchText]
   );
 
-  // Load the numbers at the top
-  useEffect(function () {
-    getStats().then(setStats).catch(handleError);
+  // Load the numbers at the top (they follow the date filter)
+  const dateKey = dateRange.from + '|' + dateRange.to;
+  useEffect(
+    function () {
+      getStats({ from: dateRange.from, to: dateRange.to }).then(setStats).catch(handleError);
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    [dateKey]
+  );
 
   // Load the list whenever a filter changes
   const queryKey = searchParams.toString();
@@ -119,7 +174,7 @@ function ApplicationsPage() {
       let cancelled = false;
       setIsLoading(true);
       setError('');
-      listApplications(filters)
+      listApplications(requestFilters)
         .then(function (result) {
           if (!cancelled) {
             setData(result);
@@ -143,7 +198,9 @@ function ApplicationsPage() {
   const technologyOptions = TECHNOLOGIES.map(function (item) {
     return { value: item.value, label: item.label };
   });
-  const hasFilters = filters.status || filters.technology || filters.location || filters.mode || filters.search;
+  const hasFilters = filters.status || filters.technology || filters.location || filters.mode || filters.search || filters.period;
+  const rangeText = describeRange(dateRange);
+  const todayText = toDateText(new Date());
   const items = data ? data.items : [];
   const pagination = data ? data.pagination : null;
 
@@ -155,8 +212,27 @@ function ApplicationsPage() {
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Applications</h1>
           <p className="mt-1 text-sm text-slate-500">
             {stats ? stats.today + ' new today' : 'Loading…'}
+            {rangeText && (
+              <>
+                {' · '}
+                <span className="font-semibold text-brand-800">Showing {rangeText}</span>
+              </>
+            )}
           </p>
         </div>
+        <button
+          type="button"
+          onClick={handleDownload}
+          disabled={isDownloading || (pagination && pagination.total === 0)}
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-emerald-600 hover:text-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/20 disabled:cursor-not-allowed disabled:opacity-50"
+          title="Downloads the applications that match the current filters"
+        >
+          <svg className="h-4 w-4 text-emerald-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.69L6.53 8.72a.75.75 0 00-1.06 1.06l4 4a.75.75 0 001.06 0l4-4a.75.75 0 10-1.06-1.06l-2.72 2.72V2.75z" />
+            <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+          </svg>
+          {isDownloading ? 'Preparing…' : hasFilters ? 'Download filtered (Excel)' : 'Download all (Excel)'}
+        </button>
       </div>
 
       {/* Status tabs with counts */}
@@ -186,7 +262,7 @@ function ApplicationsPage() {
       </div>
 
       {/* ---------- Search + filters ---------- */}
-      <div className="mt-5 grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-[1fr_200px_160px_150px_auto]">
+      <div className="mt-5 grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-[1fr_180px_150px_140px_170px_auto]">
         <label className="relative block sm:col-span-2 lg:col-span-1">
           <span className="sr-only">Search</span>
           <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -205,6 +281,7 @@ function ApplicationsPage() {
         <FilterSelect label="Technology" value={filters.technology} options={technologyOptions} onChange={function (value) { updateFilter('technology', value); }} />
         <FilterSelect label="Location" value={filters.location} options={LOCATIONS} onChange={function (value) { updateFilter('location', value); }} />
         <FilterSelect label="Mode" value={filters.mode} options={INTERNSHIP_MODES} onChange={function (value) { updateFilter('mode', value); }} />
+        <FilterSelect label="Date" value={filters.period} options={DATE_PERIODS} onChange={changePeriod} />
         {hasFilters ? (
           <button
             type="button"
@@ -215,6 +292,38 @@ function ApplicationsPage() {
           </button>
         ) : (
           <span className="hidden lg:block" />
+        )}
+
+        {/* From – To, only for "Custom dates" */}
+        {filters.period === 'custom' && (
+          <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-3 sm:col-span-2 lg:col-span-6">
+            <label className="block min-w-0 flex-1 sm:flex-none">
+              <span className="mb-1 block text-[13px] font-semibold text-slate-600">From</span>
+              <input
+                type="date"
+                value={filters.customFrom}
+                max={filters.customTo || todayText}
+                onChange={function (event) {
+                  updateFilter('from', event.target.value);
+                }}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15 sm:w-44"
+              />
+            </label>
+            <label className="block min-w-0 flex-1 sm:flex-none">
+              <span className="mb-1 block text-[13px] font-semibold text-slate-600">To</span>
+              <input
+                type="date"
+                value={filters.customTo}
+                min={filters.customFrom || undefined}
+                max={todayText}
+                onChange={function (event) {
+                  updateFilter('to', event.target.value);
+                }}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15 sm:w-44"
+              />
+            </label>
+            <p className="w-full text-[13px] text-slate-500 sm:w-auto sm:pb-2">Both dates are included.</p>
+          </div>
         )}
       </div>
 

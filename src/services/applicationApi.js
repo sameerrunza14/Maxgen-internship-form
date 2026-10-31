@@ -1,4 +1,5 @@
 import { DOCUMENTS } from '../constants/formOptions';
+import { IS_DEMO_MODE } from '../config/demoMode';
 
 // "LinkedIn", or "Ref. from Friends - Rahul Shah" when extra detail is given
 export function buildReferenceText(values) {
@@ -69,6 +70,15 @@ const NETWORK_ERROR_MESSAGE =
  */
 export async function submitApplication(values, files) {
   const formData = buildApplicationFormData(values, files);
+
+  // Demo preview: show the success screen without sending anything
+  if (IS_DEMO_MODE) {
+    await new Promise(function (resolve) {
+      setTimeout(resolve, 1200);
+    });
+    const randomPart = Math.random().toString(16).slice(2, 8).toUpperCase();
+    return { referenceNo: 'DEMO-' + randomPart };
+  }
 
   let response;
   try {
