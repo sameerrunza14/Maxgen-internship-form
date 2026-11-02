@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import AdminLayout from "../components/AdminLayout";
 import StatusBadge from "../components/StatusBadge";
+import { VisitedTag, ReturningTag } from "../components/Tags";
 import { Alert } from "../components/AdminUi";
 import { useAdmin } from "../AdminAuth";
 import {
@@ -32,6 +33,12 @@ import {
 } from "../dateRanges";
 
 // "Visited" filter: students who came to the office (ticked by HR on the application page)
+// Same phone number or email applied before?
+const APPLICANT_OPTIONS = [
+  { value: "returning", label: "Returning (applied before)" },
+  { value: "new", label: "First time" },
+];
+
 const VISITED_OPTIONS = [
   { value: "today", label: "Visited today" },
   { value: "yes", label: "Visited (any day)" },
@@ -41,18 +48,6 @@ const VISITED_OPTIONS = [
 const TYPE_OPTIONS = INTERNSHIP_TYPES.map(function (item) {
   return { value: item.value, label: item.value };
 });
-
-// Small green tag shown next to the status
-export function VisitedTag() {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-800 ring-1 ring-sky-200">
-      <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-        <path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clipRule="evenodd" />
-      </svg>
-      Visited
-    </span>
-  );
-}
 
 const STATUS_TABS = [
   { value: "", label: "All", statKey: "total" },
@@ -126,6 +121,7 @@ function ApplicationsPage() {
     mode: searchParams.get("mode") || "",
     internshipType: searchParams.get("internshipType") || "",
     visited: searchParams.get("visited") || "", // '', today, yes, no
+    applicant: searchParams.get("applicant") || "", // '', returning, new
     search: searchParams.get("search") || "",
     period: searchParams.get("period") || "", // '', today, yesterday, week, month, lastMonth, custom
     customFrom: searchParams.get("from") || "",
@@ -148,6 +144,7 @@ function ApplicationsPage() {
     mode: filters.mode,
     internshipType: filters.internshipType,
     visited: filters.visited,
+    applicant: filters.applicant,
     search: filters.search,
     from: dateRange.from,
     to: dateRange.to,
@@ -317,6 +314,7 @@ function ApplicationsPage() {
     filters.mode ||
     filters.internshipType ||
     filters.visited ||
+    filters.applicant ||
     filters.search ||
     filters.period;
   const rangeText = describeRange(dateRange);
@@ -457,7 +455,7 @@ function ApplicationsPage() {
       </div>
 
       {/* ---------- Search + filters ---------- */}
-      <div className="mt-5 grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-5 grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-5">
         <label className="relative block sm:col-span-2">
           <span className="sr-only">Search</span>
           <svg
@@ -523,6 +521,14 @@ function ApplicationsPage() {
           }}
         />
         <FilterSelect
+          label="Applicant"
+          value={filters.applicant}
+          options={APPLICANT_OPTIONS}
+          onChange={function (value) {
+            updateFilter("applicant", value);
+          }}
+        />
+        <FilterSelect
           label="Applied"
           value={filters.period}
           options={DATE_PERIODS}
@@ -531,7 +537,7 @@ function ApplicationsPage() {
 
         {/* From – To, only for "Custom dates" */}
         {filters.period === "custom" && (
-          <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-3 sm:col-span-2 lg:col-span-4">
+          <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-3 sm:col-span-2 lg:col-span-5">
             <label className="block min-w-0 flex-1 sm:flex-none">
               <span className="mb-1 block text-[13px] font-semibold text-slate-600">
                 From
@@ -677,6 +683,11 @@ function ApplicationsPage() {
                           >
                             {item.fullName}
                           </Link>
+                          {item.earlierCount > 0 && (
+                            <span className="ml-2 align-middle">
+                              <ReturningTag earlierCount={item.earlierCount} />
+                            </span>
+                          )}
                           <span className="mt-0.5 block text-[13px] text-slate-500">
                             {formatPhone(item.contactNumber)} ·{" "}
                             {item.referenceNo}
@@ -729,6 +740,11 @@ function ApplicationsPage() {
                           <p className="mt-0.5 text-[13px] text-slate-500">
                             {formatPhone(item.contactNumber)}
                           </p>
+                          {item.earlierCount > 0 && (
+                            <p className="mt-1.5">
+                              <ReturningTag earlierCount={item.earlierCount} />
+                            </p>
+                          )}
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-1">
                           <StatusBadge status={item.status} />

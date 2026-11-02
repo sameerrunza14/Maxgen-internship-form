@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import StatusBadge from '../components/StatusBadge';
+import { ReturningTag, VisitedTag, ordinal } from '../components/Tags';
 import { ConfirmDialog, secondaryButton } from '../components/AdminUi';
 import { useAdmin } from '../AdminAuth';
 import {
@@ -290,6 +291,7 @@ function ApplicationDetailPage() {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{app.fullName}</h1>
             <StatusBadge status={app.status} large />
+            {app.earlierCount > 0 && <ReturningTag earlierCount={app.earlierCount} />}
           </div>
           <p className="mt-1 text-sm text-slate-500">
             {app.referenceNo} · Applied {formatDateTime(app.createdAt)}
@@ -478,6 +480,53 @@ function ApplicationDetailPage() {
         >
           {statusMessage.text}
         </div>
+      )}
+
+      {/* Same phone or email applied before / after: the whole history of this person */}
+      {app.otherApplications && app.otherApplications.length > 0 && (
+        <section className="mt-4 rounded-xl border border-amber-200 bg-amber-50/60">
+          <div className="border-b border-amber-200 px-4 py-3 sm:px-5">
+            <h2 className="text-[15px] font-bold text-amber-900">
+              {app.earlierCount > 0
+                ? 'Returning applicant — this is the ' + ordinal(app.earlierCount + 1) + ' application of this person'
+                : 'This person applied again later'}
+            </h2>
+            <p className="mt-0.5 text-[13px] text-amber-800">
+              Matched by the same phone number or email. All {app.otherApplications.length + 1} applications are listed, newest first.
+            </p>
+          </div>
+          <ul className="divide-y divide-amber-100">
+            {[{ ...app, isCurrent: true }]
+              .concat(app.otherApplications)
+              .sort(function (a, b) {
+                return new Date(b.createdAt) - new Date(a.createdAt) || b.id - a.id;
+              })
+              .map(function (item) {
+                return (
+                  <li key={item.id} className={'flex flex-col gap-1.5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5' + (item.isCurrent ? ' bg-white/70' : '')}>
+                    <div className="min-w-0 text-sm">
+                      {item.isCurrent ? (
+                        <span className="font-semibold text-slate-900">{item.referenceNo} (this one)</span>
+                      ) : (
+                        <Link to={'/admin/applications/' + item.id} className="font-semibold text-brand-700 hover:underline">
+                          {item.referenceNo}
+                        </Link>
+                      )}
+                      <span className="text-slate-600">
+                        {' · '}
+                        {formatDateTime(item.createdAt)} · {item.technologies.join(', ')}
+                        {item.internshipType && ' · ' + item.internshipType}
+                      </span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <StatusBadge status={item.status} />
+                      {item.visitedAt && <VisitedTag />}
+                    </div>
+                  </li>
+                );
+              })}
+          </ul>
+        </section>
       )}
 
       {actionError && (

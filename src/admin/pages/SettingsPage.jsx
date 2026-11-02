@@ -236,7 +236,7 @@ function SettingsPage() {
                 />
                 <NumberField
                   label="Block repeat applications for (days)"
-                  help="Same phone + same technology within these days is refused. 0 = off."
+                  help="0 = off (recommended): everyone can apply again and is marked as Returning. More than 0: same phone + same technology is refused for these days."
                   value={form.duplicateBlockDays}
                   min={0}
                   max={60}

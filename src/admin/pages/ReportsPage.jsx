@@ -123,7 +123,7 @@ function ReportsPage() {
 
       {report && (
         <div className={'transition-opacity ' + (isLoading ? 'opacity-60' : '')}>
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
             <SummaryCard label="Applications" value={summary.total} />
             <SummaryCard label="Pending" value={summary.pending} />
             <SummaryCard label="Accepted" value={summary.accepted} />
@@ -134,6 +134,7 @@ function ReportsPage() {
               note="of decided applications"
             />
             <SummaryCard label="Visited office" value={summary.visited} note="ticked by HR" />
+            <SummaryCard label="Returning" value={summary.returning} note="applied before" />
             <SummaryCard
               label="Time to decide"
               value={
