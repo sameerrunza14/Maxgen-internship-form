@@ -10,6 +10,7 @@ import {
   openDocument,
   addNote,
   deleteNote,
+  updateVisited,
   moveToTrash,
   restoreApplication,
   SessionExpiredError,
@@ -67,6 +68,20 @@ function ApplicationDetailPage() {
   });
   const [confirmAction, setConfirmAction] = useState(''); // 'trash' or a note id to delete
   const [isBusy, setIsBusy] = useState(false);
+  const [isSavingVisit, setIsSavingVisit] = useState(false);
+
+  async function handleVisited(visited) {
+    setIsSavingVisit(true);
+    setActionError('');
+    try {
+      const updated = await updateVisited(id, visited);
+      setApplication(updated);
+    } catch (error) {
+      handleError(error, setActionError);
+    } finally {
+      setIsSavingVisit(false);
+    }
+  }
   const [openingDocument, setOpeningDocument] = useState('');
   const [noteText, setNoteText] = useState('');
   const [noteError, setNoteError] = useState('');
@@ -280,6 +295,7 @@ function ApplicationDetailPage() {
             {app.referenceNo} · Applied {formatDateTime(app.createdAt)}
           </p>
           <p className="mt-3 text-[15px] font-semibold text-brand-800">
+            {app.internshipType && app.internshipType + ' internship · '}
             {app.technologies.join(', ')} · {app.durations.join(', ')} · {app.location} ({app.mode})
           </p>
           {app.reviewedBy && app.status !== 'pending' && (
@@ -419,6 +435,34 @@ function ApplicationDetailPage() {
               )}
             </div>
           )}
+
+          {/* Visited the office: HR ticks this when the student comes in (interview, walk-in, joining) */}
+          <label
+            className={
+              'mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl border px-3.5 py-3 transition ' +
+              (app.visitedAt ? 'border-sky-200 bg-sky-50' : 'border-slate-200 bg-white hover:border-slate-300')
+            }
+          >
+            <input
+              type="checkbox"
+              checked={Boolean(app.visitedAt)}
+              disabled={isSavingVisit}
+              onChange={function (event) {
+                handleVisited(event.target.checked);
+              }}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-sky-700"
+            />
+            <span className="text-[13px] leading-snug">
+              <span className="block font-semibold text-slate-900">
+                {isSavingVisit ? 'Saving…' : 'Student visited the office'}
+              </span>
+              <span className="block text-slate-500">
+                {app.visitedAt
+                  ? formatDateTime(app.visitedAt) + (app.visitedBy ? ' · marked by ' + app.visitedBy.name : '')
+                  : 'Tick when the student comes for the interview or joining.'}
+              </span>
+            </span>
+          </label>
         </div>
       </div>
 
@@ -468,6 +512,7 @@ function ApplicationDetailPage() {
 
           <Section title="Internship details">
             <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+              <Detail label="Internship type" value={app.internshipType ? app.internshipType + ' internship' : 'Not specified'} wide />
               <Detail label={app.technologies.length > 1 ? 'Technologies' : 'Technology'} value={app.technologies.join(', ')} />
               <Detail label={app.durations.length > 1 ? 'Durations' : 'Duration'} value={app.durations.join(', ')} />
               <Detail label="Location" value={app.location} />

@@ -123,7 +123,7 @@ function ReportsPage() {
 
       {report && (
         <div className={'transition-opacity ' + (isLoading ? 'opacity-60' : '')}>
-          <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-6">
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
             <SummaryCard label="Applications" value={summary.total} />
             <SummaryCard label="Pending" value={summary.pending} />
             <SummaryCard label="Accepted" value={summary.accepted} />
@@ -133,6 +133,7 @@ function ReportsPage() {
               value={summary.acceptanceRate === null ? '—' : summary.acceptanceRate + '%'}
               note="of decided applications"
             />
+            <SummaryCard label="Visited office" value={summary.visited} note="ticked by HR" />
             <SummaryCard
               label="Time to decide"
               value={
@@ -161,6 +162,13 @@ function ReportsPage() {
           </div>
 
           <div className="mt-4 grid gap-5 lg:grid-cols-2">
+            <Breakdown
+              title="Summer / Winter / Regular"
+              rows={report.byInternshipType}
+              labelFor={function (name) {
+                return name === 'Not specified' ? name : name + ' internship';
+              }}
+            />
             <Breakdown title="Technologies" rows={report.byTechnology} />
             <Breakdown title="Month by month" rows={report.byMonth} labelFor={monthLabel} />
             <Breakdown title="How students heard about us" rows={report.bySource} />

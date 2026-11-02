@@ -7,6 +7,7 @@ import {
   YES_NO,
   LOCATIONS,
   INTERNSHIP_MODES,
+  INTERNSHIP_TYPES,
   REFERENCE_SOURCES,
   REFERENCE_DETAIL_LABELS,
 } from '../../constants/formOptions';
@@ -20,6 +21,19 @@ function InternshipStep({ values, errors, onChange, onValueChange, onBlur }) {
 
   return (
     <div className="space-y-7 sm:space-y-8">
+      <ChoiceCards
+        label="Internship Type"
+        name="internshipType"
+        required
+        compact
+        hint="When do you want to do the internship?"
+        gridClass="grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-3"
+        options={INTERNSHIP_TYPES}
+        value={values.internshipType}
+        error={errors.internshipType}
+        onChange={onValueChange}
+      />
+
       <ChoiceCards
         label="Technology"
         name="technologies"

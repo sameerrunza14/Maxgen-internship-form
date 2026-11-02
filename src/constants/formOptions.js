@@ -66,6 +66,13 @@ export const LOCATIONS = [
   { value: 'Mumbai', label: 'Mumbai', description: 'Maharashtra' },
 ];
 
+// Summer / Winter / Regular. The months are only a hint (keep the same values as the backend).
+export const INTERNSHIP_TYPES = [
+  { value: 'Summer', label: 'Summer Internship', description: 'March – July' },
+  { value: 'Winter', label: 'Winter Internship', description: 'November – February' },
+  { value: 'Regular', label: 'Regular Internship', description: 'August – October' },
+];
+
 export const INTERNSHIP_MODES = [
   { value: 'Online', label: 'Online', description: 'Intern remotely' },
   { value: 'Offline', label: 'Offline', description: 'At our office' },

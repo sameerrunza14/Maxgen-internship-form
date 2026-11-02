@@ -22,6 +22,7 @@ import {
   TECHNOLOGIES,
   LOCATIONS,
   INTERNSHIP_MODES,
+  INTERNSHIP_TYPES,
 } from "../../constants/formOptions";
 import {
   DATE_PERIODS,
@@ -29,6 +30,29 @@ import {
   describeRange,
   toDateText,
 } from "../dateRanges";
+
+// "Visited" filter: students who came to the office (ticked by HR on the application page)
+const VISITED_OPTIONS = [
+  { value: "today", label: "Visited today" },
+  { value: "yes", label: "Visited (any day)" },
+  { value: "no", label: "Not visited" },
+];
+
+const TYPE_OPTIONS = INTERNSHIP_TYPES.map(function (item) {
+  return { value: item.value, label: item.value };
+});
+
+// Small green tag shown next to the status
+export function VisitedTag() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-800 ring-1 ring-sky-200">
+      <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clipRule="evenodd" />
+      </svg>
+      Visited
+    </span>
+  );
+}
 
 const STATUS_TABS = [
   { value: "", label: "All", statKey: "total" },
@@ -100,6 +124,8 @@ function ApplicationsPage() {
     technology: searchParams.get("technology") || "",
     location: searchParams.get("location") || "",
     mode: searchParams.get("mode") || "",
+    internshipType: searchParams.get("internshipType") || "",
+    visited: searchParams.get("visited") || "", // '', today, yes, no
     search: searchParams.get("search") || "",
     period: searchParams.get("period") || "", // '', today, yesterday, week, month, lastMonth, custom
     customFrom: searchParams.get("from") || "",
@@ -120,6 +146,8 @@ function ApplicationsPage() {
     technology: filters.technology,
     location: filters.location,
     mode: filters.mode,
+    internshipType: filters.internshipType,
+    visited: filters.visited,
     search: filters.search,
     from: dateRange.from,
     to: dateRange.to,
@@ -287,6 +315,8 @@ function ApplicationsPage() {
     filters.technology ||
     filters.location ||
     filters.mode ||
+    filters.internshipType ||
+    filters.visited ||
     filters.search ||
     filters.period;
   const rangeText = describeRange(dateRange);
@@ -304,6 +334,21 @@ function ApplicationsPage() {
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             {stats ? stats.today + " new today" : "Loading…"}
+            {stats && (
+              <>
+                {" · "}
+                <button
+                  type="button"
+                  onClick={function () {
+                    updateFilter("visited", "today");
+                  }}
+                  className="font-semibold text-sky-800 hover:underline"
+                  title="Show the students who visited the office today"
+                >
+                  {stats.visitedToday} visited today
+                </button>
+              </>
+            )}
             {rangeText && (
               <>
                 {" · "}
@@ -333,9 +378,11 @@ function ApplicationsPage() {
             </svg>
             {isDownloading
               ? "Preparing…"
-              : hasFilters
-                ? "Download filtered (Excel)"
-                : "Download all (Excel)"}
+              : filters.visited === "today"
+                ? "Download today's visitors (Excel)"
+                : hasFilters
+                  ? "Download filtered (Excel)"
+                  : "Download all (Excel)"}
           </button>
           {isSuperadmin && (
             <button
@@ -410,8 +457,8 @@ function ApplicationsPage() {
       </div>
 
       {/* ---------- Search + filters ---------- */}
-      <div className="mt-5 grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-[1fr_180px_150px_140px_170px_auto]">
-        <label className="relative block sm:col-span-2 lg:col-span-1">
+      <div className="mt-5 grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="relative block sm:col-span-2">
           <span className="sr-only">Search</span>
           <svg
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -460,26 +507,31 @@ function ApplicationsPage() {
           }}
         />
         <FilterSelect
-          label="Date"
+          label="Type"
+          value={filters.internshipType}
+          options={TYPE_OPTIONS}
+          onChange={function (value) {
+            updateFilter("internshipType", value);
+          }}
+        />
+        <FilterSelect
+          label="Visited"
+          value={filters.visited}
+          options={VISITED_OPTIONS}
+          onChange={function (value) {
+            updateFilter("visited", value);
+          }}
+        />
+        <FilterSelect
+          label="Applied"
           value={filters.period}
           options={DATE_PERIODS}
           onChange={changePeriod}
         />
-        {hasFilters ? (
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="rounded-lg px-3 py-2.5 text-sm font-semibold text-brand-700 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
-          >
-            Clear filters
-          </button>
-        ) : (
-          <span className="hidden lg:block" />
-        )}
 
         {/* From – To, only for "Custom dates" */}
         {filters.period === "custom" && (
-          <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-3 sm:col-span-2 lg:col-span-6">
+          <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-3 sm:col-span-2 lg:col-span-4">
             <label className="block min-w-0 flex-1 sm:flex-none">
               <span className="mb-1 block text-[13px] font-semibold text-slate-600">
                 From
@@ -532,18 +584,29 @@ function ApplicationsPage() {
         }
       >
         {pagination && (
-          <p className="mb-3 text-sm text-slate-500">
-            {pagination.total === 0
-              ? "No applications found"
-              : "Showing " +
-                ((pagination.page - 1) * pagination.pageSize + 1) +
-                "–" +
-                Math.min(
-                  pagination.page * pagination.pageSize,
-                  pagination.total,
-                ) +
-                " of " +
-                pagination.total}
+          <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
+            <span>
+              {pagination.total === 0
+                ? "No applications found"
+                : "Showing " +
+                  ((pagination.page - 1) * pagination.pageSize + 1) +
+                  "–" +
+                  Math.min(
+                    pagination.page * pagination.pageSize,
+                    pagination.total,
+                  ) +
+                  " of " +
+                  pagination.total}
+            </span>
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="font-semibold text-brand-700 hover:underline focus:outline-none focus-visible:underline"
+              >
+                Clear filters
+              </button>
+            )}
           </p>
         )}
 
@@ -621,6 +684,11 @@ function ApplicationsPage() {
                         </td>
                         <td className="px-4 py-3 text-slate-700">
                           {item.technologies.join(", ")}
+                          {item.internshipType && (
+                            <span className="mt-0.5 block text-[13px] text-slate-500">
+                              {item.internshipType} internship
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-slate-700">
                           {item.location} · {item.mode}
@@ -632,7 +700,10 @@ function ApplicationsPage() {
                           {formatDate(item.createdAt)}
                         </td>
                         <td className="px-4 py-3">
-                          <StatusBadge status={item.status} />
+                          <div className="flex flex-col items-start gap-1">
+                            <StatusBadge status={item.status} />
+                            {item.visitedAt && <VisitedTag />}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -659,10 +730,19 @@ function ApplicationsPage() {
                             {formatPhone(item.contactNumber)}
                           </p>
                         </div>
-                        <StatusBadge status={item.status} />
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <StatusBadge status={item.status} />
+                          {item.visitedAt && <VisitedTag />}
+                        </div>
                       </div>
                       <p className="mt-3 text-sm font-medium text-slate-800">
                         {item.technologies.join(", ")}
+                        {item.internshipType && (
+                          <span className="font-normal text-slate-500">
+                            {" "}
+                            · {item.internshipType}
+                          </span>
+                        )}
                       </p>
                       <p className="mt-0.5 text-[13px] text-slate-500">
                         {item.location} · {item.mode} ·{" "}

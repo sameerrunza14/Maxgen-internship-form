@@ -10,6 +10,7 @@ import {
   LETTER_TYPES,
   LOCATIONS,
   INTERNSHIP_MODES,
+  INTERNSHIP_TYPES,
   REFERENCE_SOURCES,
   REFERENCE_DETAIL_LABELS,
 } from '../../constants/formOptions';
@@ -159,6 +160,7 @@ function EditApplicationPage() {
             technologies: app.technologies,
             durations: app.durations,
             letters: app.letters,
+            internshipType: app.internshipType,
             location: app.location,
             mode: app.mode,
             projectIncluded: app.projectIncluded ? 'yes' : 'no',
@@ -293,6 +295,8 @@ function EditApplicationPage() {
 
           <Card title="Internship details">
             <div className="grid gap-4 sm:grid-cols-2">
+              <SelectField label="Internship type" value={values.internshipType} options={INTERNSHIP_TYPES} error={errors.internshipType} onChange={function (v) { update('internshipType', v); }} />
+              <div className="hidden sm:block" />
               <CheckList label="Technologies" options={technologyOptions} values={values.technologies} error={errors.technologies} onChange={function (v) { update('technologies', v); }} />
               <CheckList label="Durations" options={DURATIONS.map(optionValue)} values={values.durations} error={errors.durations} onChange={function (v) { update('durations', v); }} />
               <SelectField label="Location" value={values.location} options={LOCATIONS} error={errors.location} onChange={function (v) { update('location', v); }} />

@@ -42,6 +42,7 @@ export function buildApplicationFormData(values, files) {
     formData.append('letters', values.letters[i]);
   }
   formData.append('projectIncluded', values.projectIncluded);
+  formData.append('internshipType', values.internshipType);
   formData.append('location', values.location);
   formData.append('mode', values.mode);
   formData.append('reference', buildReferenceText(values));

@@ -9,7 +9,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export const STEP_FIELDS = [
   ['fullName', 'email', 'contactNumber', 'parentContactNumber', 'gender', 'address'],
   ['qualification', 'qualificationOther', 'specialization', 'institute', 'semester', 'passoutYear'],
-  ['technologies', 'durations', 'letters', 'location', 'mode', 'projectIncluded', 'referenceSource', 'referenceDetail'],
+  ['internshipType', 'technologies', 'durations', 'letters', 'location', 'mode', 'projectIncluded', 'referenceSource', 'referenceDetail'],
   ['idProof', 'collegeId', 'resume', 'photo'],
   ['declarationAccepted'],
 ];
@@ -128,6 +128,9 @@ export function validateField(name, values, files) {
 
     case 'projectIncluded':
       return value ? '' : 'Please choose Yes or No.';
+
+    case 'internshipType':
+      return value ? '' : 'Please select the internship type.';
 
     case 'location':
       return value ? '' : 'Please select a location.';

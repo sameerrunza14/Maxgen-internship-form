@@ -63,6 +63,7 @@ const EMPTY_VALUES = {
   semester: '',
   passoutYear: '',
   // Internship details
+  internshipType: '',
   technologies: [],
   durations: [],
   letters: [],

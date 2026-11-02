@@ -85,6 +85,7 @@ function ReviewStep({ values, files, errors, onValueChange, onEdit }) {
         stepIndex={2}
         onEdit={onEdit}
         rows={[
+          { label: 'Internship type', value: values.internshipType ? values.internshipType + ' Internship' : '', wide: true },
           { label: 'Technology', value: values.technologies.join(', '), wide: true },
           { label: 'Duration', value: values.durations.join(', '), wide: true },
           { label: 'Location', value: values.location },

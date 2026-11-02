@@ -186,6 +186,12 @@ export async function downloadExcel(filters) {
   } else if (filters.to) {
     datePart = 'up to ' + filters.to;
   }
+  if (filters.visited === 'today') {
+    const now = new Date();
+    const todayText = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    saveBlob(blob, 'Maxgen office visitors ' + todayText + '.xlsx');
+    return;
+  }
   saveBlob(blob, 'Maxgen internship applications ' + datePart + '.xlsx');
 }
 
@@ -223,6 +229,15 @@ export async function updateStatus(id, status, sendEmail) {
     emailResult: result.data.emailResult,
     message: result.message,
   };
+}
+
+// Ticks / unticks "Student visited the office". Returns the updated application.
+export async function updateVisited(id, visited) {
+  const result = await request('/api/admin/applications/' + encodeURIComponent(id) + '/visited', {
+    method: 'PATCH',
+    body: { visited: visited },
+  });
+  return result.data.application;
 }
 
 // Opens a document in a new tab (view) or saves it (download).
