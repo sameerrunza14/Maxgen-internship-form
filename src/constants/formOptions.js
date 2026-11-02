@@ -157,15 +157,16 @@ export function getSemesterOptions() {
   return options;
 }
 
-// Passout year: from this year up to this many years ahead (keep the same as the backend)
+// Passout year: from this year up to this many years ahead (built-in value; the admin Settings page can change it)
 export const PASSOUT_YEARS_AHEAD = 5;
 
-// Passout year options: this year and the next 5 years (e.g. 2026 to 2031). Past years are never shown.
+// Passout year options: this year and the next few years (e.g. 2026 to 2031). Past years are never shown.
 // The list moves forward by itself every new year.
-export function getPassoutYearOptions() {
+export function getPassoutYearOptions(yearsAhead) {
+  const ahead = yearsAhead || PASSOUT_YEARS_AHEAD;
   const currentYear = new Date().getFullYear();
   const options = [];
-  for (let year = currentYear; year <= currentYear + PASSOUT_YEARS_AHEAD; year++) {
+  for (let year = currentYear; year <= currentYear + ahead; year++) {
     options.push({ value: String(year), label: String(year) });
   }
   return options;

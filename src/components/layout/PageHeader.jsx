@@ -1,5 +1,5 @@
 import Logo from './Logo';
-import { TECHNOLOGIES } from '../../constants/formOptions';
+import { getFormConfig } from '../../config/formConfig';
 
 const WEBSITE_URL = 'https://www.maxgentechnologies.com/';
 const CURRENT_YEAR = new Date().getFullYear();
@@ -49,7 +49,7 @@ function TechnologyWall({ selectedTechnologies }) {
       aria-hidden="true"
     >
       <ul className="absolute -right-24 -top-10 flex w-[680px] -rotate-[14deg] flex-wrap content-start gap-x-6 gap-y-1 sm:-right-10 lg:-right-16 lg:top-4">
-        {TECHNOLOGIES.map(function (technology, index) {
+        {getFormConfig().technologies.map(function (technology, index) {
           const isSelected = selectedTechnologies.includes(technology.value);
           let className = 'whitespace-nowrap text-[40px] font-extrabold leading-[1.15] tracking-tight transition-colors duration-500 ';
 

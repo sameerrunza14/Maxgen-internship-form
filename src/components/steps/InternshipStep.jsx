@@ -1,8 +1,7 @@
 import { TextInput } from '../ui/Inputs';
 import { ChoiceCards } from '../ui/ChoiceCards';
+import { getFormConfig } from '../../config/formConfig';
 import {
-  TECHNOLOGIES,
-  MAX_TECHNOLOGIES,
   DURATIONS,
   LETTER_TYPES,
   YES_NO,
@@ -15,6 +14,9 @@ import {
 function InternshipStep({ values, errors, onChange, onValueChange, onBlur }) {
   // Extra text box only for "Ref. from Friends" and "Any Other"
   const detailConfig = REFERENCE_DETAIL_LABELS[values.referenceSource];
+  // Technologies and the limit come from the admin Settings page
+  const config = getFormConfig();
+  const maxTechnologies = config.maxTechnologies;
 
   return (
     <div className="space-y-7 sm:space-y-8">
@@ -22,16 +24,16 @@ function InternshipStep({ values, errors, onChange, onValueChange, onBlur }) {
         label="Technology"
         name="technologies"
         multiple
-        maxSelected={MAX_TECHNOLOGIES}
+        maxSelected={maxTechnologies}
         required
         compact
         hideDescriptionOnMobile
         hint={
-          'Select up to ' + MAX_TECHNOLOGIES + ' technologies.' +
-          (values.technologies.length > 0 ? ' Selected: ' + values.technologies.length + ' of ' + MAX_TECHNOLOGIES + '.' : '')
+          (maxTechnologies === 1 ? 'Select one technology.' : 'Select up to ' + maxTechnologies + ' technologies.') +
+          (values.technologies.length > 0 && maxTechnologies > 1 ? ' Selected: ' + values.technologies.length + ' of ' + maxTechnologies + '.' : '')
         }
         gridClass="grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-3"
-        options={TECHNOLOGIES}
+        options={config.technologies}
         value={values.technologies}
         error={errors.technologies}
         onChange={onValueChange}

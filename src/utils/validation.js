@@ -1,4 +1,5 @@
-import { DOCUMENTS, MAX_TECHNOLOGIES, PASSOUT_YEARS_AHEAD } from '../constants/formOptions';
+import { DOCUMENTS } from '../constants/formOptions';
+import { getFormConfig } from '../config/formConfig';
 
 const NAME_PATTERN = /^[A-Za-z][A-Za-z .'-]*$/;
 const PHONE_PATTERN = /^[6-9]\d{9}$/;
@@ -106,15 +107,17 @@ export function validateField(name, values, files) {
       if (!value) return 'Please select your passout year.';
       const currentYear = new Date().getFullYear();
       const year = Number(value);
-      if (year < currentYear || year > currentYear + PASSOUT_YEARS_AHEAD) {
-        return 'Passout year must be between ' + currentYear + ' and ' + (currentYear + PASSOUT_YEARS_AHEAD) + '.';
+      const yearsAhead = getFormConfig().passoutYearsAhead;
+      if (year < currentYear || year > currentYear + yearsAhead) {
+        return 'Passout year must be between ' + currentYear + ' and ' + (currentYear + yearsAhead) + '.';
       }
       return '';
     }
 
     case 'technologies':
       if (values.technologies.length === 0) return 'Please select at least one technology.';
-      if (values.technologies.length > MAX_TECHNOLOGIES) return 'You can select up to ' + MAX_TECHNOLOGIES + ' technologies.';
+      const maxTechnologies = getFormConfig().maxTechnologies;
+      if (values.technologies.length > maxTechnologies) return 'You can select up to ' + maxTechnologies + ' technologies.';
       return '';
 
     case 'durations':

@@ -29,7 +29,7 @@ src/
 ├── constants/formOptions.js     All options, documents, steps and declaration text
 ├── utils/validation.js          Validation rules for every field and step
 ├── services/applicationApi.js   Builds the FormData and sends it to the backend
-├── admin/                       Admin panel: sign in, applications list, application details
+├── admin/                       Admin panel: applications (HR) + users, settings, reports, activity, trash (superadmin)
 └── components/
     ├── ApplicationPage.jsx      Main page: form state, step navigation, submit
     ├── layout/                  Logo, header, hero, stepper, success screen
@@ -39,9 +39,14 @@ src/
 
 ## Admin panel
 
-Open `/admin` (e.g. http://localhost:5173/admin) and sign in with an account created by
-`npm run create-admin` in the backend folder. HR can search and filter applications, open every detail and
-document, and accept or reject. The admin pages are loaded only when `/admin` is opened, so students filling
+Open `/admin` (e.g. http://localhost:5173/admin) and sign in. The first account is created with
+`npm run create-admin` in the backend folder (it becomes the superadmin); the superadmin adds everyone else
+from **Users**. HR (Admin) can search and filter applications, open every detail and document, accept or
+reject, add notes and download Excel. The superadmin also gets **Reports, Users, Activity log, Trash and
+Settings**, can edit or delete applications and download a ZIP backup with all documents.
+
+The form reads its settings (open / closed, technologies, limits) from `GET /api/applications/config`;
+`src/config/formConfig.js` keeps the built-in values as a fallback. The admin pages are loaded only when `/admin` is opened, so students filling
 the form do not download them. `vercel.json` makes `/admin` links work on Vercel.
 
 ## Backend

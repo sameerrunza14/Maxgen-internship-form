@@ -12,6 +12,38 @@ import { STEPS, getPassoutYearOptions } from '../constants/formOptions';
 import { validateField, validateStep, findFirstStepWithError } from '../utils/validation';
 import { submitApplication } from '../services/applicationApi';
 import { IS_DEMO_MODE } from '../config/demoMode';
+import { getFormConfig, loadFormConfig } from '../config/formConfig';
+
+// After the settings arrive from the server: drop saved answers that are no longer allowed
+// (a technology that was removed, too many technologies, a passout year out of range)
+function cleanAnswersForConfig(values, config) {
+  const allowed = [];
+  for (let i = 0; i < config.technologies.length; i++) {
+    allowed.push(config.technologies[i].value);
+  }
+  const technologies = values.technologies
+    .filter(function (name) {
+      return allowed.includes(name);
+    })
+    .slice(0, config.maxTechnologies);
+
+  let passoutYear = values.passoutYear;
+  const yearOptions = getPassoutYearOptions(config.passoutYearsAhead);
+  let isYearAllowed = false;
+  for (let i = 0; i < yearOptions.length; i++) {
+    if (yearOptions[i].value === passoutYear) {
+      isYearAllowed = true;
+    }
+  }
+  if (!isYearAllowed) {
+    passoutYear = '';
+  }
+
+  if (technologies.length === values.technologies.length && passoutYear === values.passoutYear) {
+    return values; // nothing changed
+  }
+  return { ...values, technologies: technologies, passoutYear: passoutYear };
+}
 
 const DRAFT_KEY = 'maxgen-internship-draft';
 
@@ -132,6 +164,18 @@ function ApplicationPage() {
   const [draftRestored] = useState(function () {
     return loadDraft() !== null;
   });
+
+  // Settings from the admin panel (open / closed, technologies …). Starts with the built-in values.
+  const [formConfig, setFormConfig] = useState(getFormConfig());
+
+  useEffect(function () {
+    loadFormConfig().then(function (config) {
+      setFormConfig(config);
+      setValues(function (current) {
+        return cleanAnswersForConfig(current, config);
+      });
+    });
+  }, []);
 
   const cardRef = useRef(null);
   const headingRef = useRef(null);
@@ -373,7 +417,18 @@ function ApplicationPage() {
           ref={cardRef}
           className="scroll-mt-20 overflow-hidden sm:scroll-mt-24 rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_20px_50px_-24px_rgba(20,33,64,0.35)] ring-1 ring-slate-200/70"
         >
-          {result ? (
+          {!formConfig.applicationsOpen && !result ? (
+            <div className="px-6 py-14 text-center sm:px-10 sm:py-20">
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-amber-600 ring-1 ring-amber-100">
+                <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" strokeLinecap="round" />
+                </svg>
+              </span>
+              <h2 className="mt-5 text-2xl font-extrabold tracking-tight text-slate-900">Applications are closed</h2>
+              <p className="mx-auto mt-2 max-w-md whitespace-pre-line text-[15px] leading-relaxed text-slate-600">{formConfig.closedMessage}</p>
+            </div>
+          ) : result ? (
             <SuccessScreen
               name={result.fullName}
               email={result.email}

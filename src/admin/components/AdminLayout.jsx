@@ -1,9 +1,19 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import Logo from '../../components/layout/Logo';
 import { useAdmin } from '../AdminAuth';
 
+// The pages in the menu. superadminOnly pages are hidden for HR.
+const MENU = [
+  { to: '/admin', label: 'Applications', end: true },
+  { to: '/admin/reports', label: 'Reports', superadminOnly: true },
+  { to: '/admin/users', label: 'Users', superadminOnly: true },
+  { to: '/admin/activity', label: 'Activity log', superadminOnly: true },
+  { to: '/admin/trash', label: 'Trash', superadminOnly: true },
+  { to: '/admin/settings', label: 'Settings', superadminOnly: true },
+];
+
 function AdminLayout({ children }) {
-  const { admin, signOut } = useAdmin();
+  const { admin, isSuperadmin, signOut } = useAdmin();
   const navigate = useNavigate();
 
   function handleSignOut() {
@@ -27,7 +37,7 @@ function AdminLayout({ children }) {
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <span className="hidden text-right text-sm leading-tight sm:block">
               <span className="block font-semibold text-slate-800">{admin.name}</span>
-              <span className="block text-xs text-slate-500">{admin.email}</span>
+              <span className="block text-xs text-slate-500">{isSuperadmin ? 'Superadmin' : 'Admin (HR)'} · {admin.email}</span>
             </span>
             <Link
               to="/admin/password"
@@ -52,6 +62,31 @@ function AdminLayout({ children }) {
             </button>
           </div>
         </div>
+        {/* Menu (superadmin). Scrolls sideways on a phone. */}
+        {isSuperadmin && (
+          <nav className="mx-auto max-w-7xl overflow-x-auto px-2 sm:px-4" aria-label="Admin menu">
+            <ul className="flex min-w-max gap-1">
+              {MENU.map(function (item) {
+                return (
+                  <li key={item.to}>
+                    <NavLink
+                      to={item.to}
+                      end={item.end}
+                      className={function ({ isActive }) {
+                        return (
+                          'block border-b-2 px-3 py-2.5 text-sm font-semibold transition focus:outline-none focus-visible:bg-brand-50 ' +
+                          (isActive ? 'border-brand-700 text-brand-800' : 'border-transparent text-slate-500 hover:text-slate-800')
+                        );
+                      }}
+                    >
+                      {item.label}
+                    </NavLink>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        )}
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>

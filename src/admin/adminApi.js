@@ -258,3 +258,104 @@ export async function openDocument(applicationId, documentType, fileName, downlo
     throw error;
   }
 }
+
+// ---------- Superadmin: applications ----------
+
+// Saves corrected details. values = same fields as the form (technologies / durations / letters are lists)
+export async function editApplication(id, values) {
+  const result = await request('/api/admin/applications/' + encodeURIComponent(id), { method: 'PATCH', body: values });
+  return { application: result.data.application, message: result.message };
+}
+
+export async function deleteNote(applicationId, noteId) {
+  const result = await request(
+    '/api/admin/applications/' + encodeURIComponent(applicationId) + '/notes/' + encodeURIComponent(noteId),
+    { method: 'DELETE' }
+  );
+  return result.data.application;
+}
+
+// Each returns the message to show
+export async function moveToTrash(id) {
+  const result = await request('/api/admin/applications/' + encodeURIComponent(id) + '/trash', { method: 'POST' });
+  return result.message;
+}
+
+export async function restoreApplication(id) {
+  const result = await request('/api/admin/applications/' + encodeURIComponent(id) + '/restore', { method: 'POST' });
+  return result.message;
+}
+
+export async function deleteForever(id) {
+  const result = await request('/api/admin/applications/' + encodeURIComponent(id), { method: 'DELETE' });
+  return result.message;
+}
+
+export async function emptyTrash() {
+  const result = await request('/api/admin/trash', { method: 'DELETE' });
+  return result.message;
+}
+
+// Downloads a ZIP: the Excel sheet + every document, one folder per application (same filters as the list)
+export async function downloadBackup(filters) {
+  const backupFilters = { ...filters };
+  delete backupFilters.page;
+  const blob = await request('/api/admin/backup?' + buildQuery(backupFilters), { returnBlob: true });
+  saveBlob(blob, 'Maxgen applications backup ' + new Date().toISOString().slice(0, 10) + '.zip');
+}
+
+// ---------- Superadmin: users ----------
+
+export async function listUsers() {
+  const result = await request('/api/admin/users');
+  return result.data;
+}
+
+// Returns { user, setupLink, emailSent, message }
+export async function createUser(name, email, role) {
+  const result = await request('/api/admin/users', { method: 'POST', body: { name: name, email: email, role: role } });
+  return { ...result.data, message: result.message };
+}
+
+// changes = { name, role, isActive }
+export async function updateUser(id, changes) {
+  const result = await request('/api/admin/users/' + encodeURIComponent(id), { method: 'PATCH', body: changes });
+  return { user: result.data.user, message: result.message };
+}
+
+// Returns { setupLink, emailSent, message }
+export async function sendSetupLink(id) {
+  const result = await request('/api/admin/users/' + encodeURIComponent(id) + '/setup-link', { method: 'POST' });
+  return { ...result.data, message: result.message };
+}
+
+// ---------- Superadmin: settings, reports, activity ----------
+
+export async function getSettings() {
+  const result = await request('/api/admin/settings');
+  return result.data.settings;
+}
+
+export async function saveSettings(changes) {
+  const result = await request('/api/admin/settings', { method: 'PATCH', body: changes });
+  return { settings: result.data.settings, message: result.message };
+}
+
+// filters = { from, to }
+export async function getReports(filters) {
+  const result = await request('/api/admin/reports?' + buildQuery(filters || {}));
+  return result.data;
+}
+
+// filters = { page, adminId, action, from, to }
+export async function getActivity(filters) {
+  const result = await request('/api/admin/activity?' + buildQuery(filters || {}));
+  return result.data;
+}
+
+// The technologies currently on the form (Settings page), for the Technology filter
+export async function getFormTechnologies() {
+  const response = await fetch(API_BASE_URL + '/api/applications/config');
+  const result = await response.json();
+  return result.data.config.technologies;
+}

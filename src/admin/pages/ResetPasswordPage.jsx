@@ -11,6 +11,8 @@ function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
+  // &welcome=1: the link from the "Your admin panel account is ready" email (a new user)
+  const isWelcome = searchParams.get('welcome') === '1';
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -34,7 +36,10 @@ function ResetPasswordPage() {
 
     setIsSaving(true);
     try {
-      const message = await resetPassword(token, newPassword);
+      let message = await resetPassword(token, newPassword);
+      if (isWelcome) {
+        message = 'Your password is set. Sign in with your email and the new password.';
+      }
       // Any old sign-in on this browser no longer works, so start fresh
       clearToken();
       navigate('/admin/login', { replace: true, state: { message: message } });
@@ -62,7 +67,10 @@ function ResetPasswordPage() {
   }
 
   return (
-    <AuthLayout title="Choose a new password" subtitle="After this, every device will need to sign in again.">
+    <AuthLayout
+      title={isWelcome ? 'Welcome! Set your password' : 'Choose a new password'}
+      subtitle={isWelcome ? 'Choose the password you will use to sign in to the admin panel.' : 'After this, every device will need to sign in again.'}
+    >
       <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-5 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-7">
         <PasswordInput
           id="new-password"
@@ -91,9 +99,13 @@ function ResetPasswordPage() {
         {errors.form && (
           <div role="alert" className="rounded-lg bg-accent-50 px-3.5 py-2.5 text-sm font-medium text-accent-600 ring-1 ring-accent-100">
             {errors.form}{' '}
-            <Link to="/admin/forgot-password" className="underline">
-              Get a new link
-            </Link>
+            {isWelcome ? (
+              'Ask your superadmin to send a new set-password link.'
+            ) : (
+              <Link to="/admin/forgot-password" className="underline">
+                Get a new link
+              </Link>
+            )}
           </div>
         )}
 
@@ -102,7 +114,7 @@ function ResetPasswordPage() {
           disabled={isSaving}
           className="w-full rounded-lg bg-brand-700 px-4 py-3 text-[15px] font-semibold text-white transition hover:bg-brand-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/30 disabled:cursor-wait disabled:opacity-80"
         >
-          {isSaving ? 'Saving…' : 'Save new password'}
+          {isSaving ? 'Saving…' : isWelcome ? 'Set password' : 'Save new password'}
         </button>
       </form>
 

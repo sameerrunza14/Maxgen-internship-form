@@ -1,8 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import StatusBadge from '../components/StatusBadge';
-import { getApplication, updateStatus, openDocument, addNote, SessionExpiredError } from '../adminApi';
+import { ConfirmDialog, secondaryButton } from '../components/AdminUi';
+import { useAdmin } from '../AdminAuth';
+import {
+  getApplication,
+  updateStatus,
+  openDocument,
+  addNote,
+  deleteNote,
+  moveToTrash,
+  restoreApplication,
+  SessionExpiredError,
+} from '../adminApi';
 import { formatDateTime, formatPhone, formatFileSize } from '../formatters';
 import { DOCUMENTS } from '../../constants/formOptions';
 
@@ -41,13 +52,21 @@ function ContactButton({ href, label, children }) {
 function ApplicationDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isSuperadmin } = useAdmin();
   const [application, setApplication] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
   const [savingStatus, setSavingStatus] = useState('');
   const [confirmStatus, setConfirmStatus] = useState(''); // 'accepted' or 'rejected' while asking "Are you sure?"
   const [sendStatusEmail, setSendStatusEmail] = useState(true); // the "Email the student" tick box
-  const [statusMessage, setStatusMessage] = useState({ text: '', isWarning: false });
+  // "Application details saved." comes from the edit page
+  const [statusMessage, setStatusMessage] = useState({
+    text: location.state && location.state.savedMessage ? location.state.savedMessage : '',
+    isWarning: false,
+  });
+  const [confirmAction, setConfirmAction] = useState(''); // 'trash' or a note id to delete
+  const [isBusy, setIsBusy] = useState(false);
   const [openingDocument, setOpeningDocument] = useState('');
   const [noteText, setNoteText] = useState('');
   const [noteError, setNoteError] = useState('');
@@ -73,6 +92,51 @@ function ApplicationDetailPage() {
       }
     } finally {
       setIsSavingNote(false);
+    }
+  }
+
+  // ---------- Superadmin: trash / restore / delete note ----------
+
+  async function handleTrash() {
+    setIsBusy(true);
+    setActionError('');
+    try {
+      const message = await moveToTrash(id);
+      navigate('/admin', { replace: true, state: { trashedMessage: application.fullName + ': ' + message } });
+    } catch (error) {
+      setConfirmAction('');
+      handleError(error, setActionError);
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function handleRestore() {
+    setIsBusy(true);
+    setActionError('');
+    try {
+      const message = await restoreApplication(id);
+      setApplication(await getApplication(id));
+      setStatusMessage({ text: message, isWarning: false });
+    } catch (error) {
+      handleError(error, setActionError);
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function handleDeleteNote(noteId) {
+    setIsBusy(true);
+    setNoteError('');
+    try {
+      const updated = await deleteNote(id, noteId);
+      setApplication(updated);
+      setConfirmAction('');
+    } catch (error) {
+      setConfirmAction('');
+      handleError(error, setNoteError);
+    } finally {
+      setIsBusy(false);
     }
   }
 
@@ -181,16 +245,29 @@ function ApplicationDetailPage() {
         type="button"
         onClick={function () {
           // Go back to the list with the same filters; if this page was opened directly, open the list
-          if (window.history.state && window.history.state.idx > 0) {
+          if (window.history.state && window.history.state.idx > 0 && !(location.state && location.state.savedMessage)) {
             navigate(-1);
           } else {
-            navigate('/admin');
+            navigate(app.deletedAt ? '/admin/trash' : '/admin');
           }
         }}
         className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline"
       >
-        ← All applications
+        ← {app.deletedAt ? 'Trash' : 'All applications'}
       </button>
+
+      {/* In the trash: only the superadmin can see this page */}
+      {app.deletedAt && (
+        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-accent-100 bg-accent-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-accent-600">
+            <span className="font-semibold">This application is in the trash.</span> Deleted {formatDateTime(app.deletedAt)}
+            {app.deletedBy && ' by ' + app.deletedBy.name}. HR cannot see it. Restore it to change it.
+          </p>
+          <button type="button" disabled={isBusy} onClick={handleRestore} className={secondaryButton + ' shrink-0'}>
+            {isBusy ? 'Restoring…' : 'Restore'}
+          </button>
+        </div>
+      )}
 
       {/* ---------- Header ---------- */}
       <div className="mt-4 flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between">
@@ -227,10 +304,31 @@ function ApplicationDetailPage() {
               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3 4a2 2 0 00-2 2v.4l9 4.8 9-4.8V6a2 2 0 00-2-2H3z" /><path d="M19 8.6l-9 4.8-9-4.8V14a2 2 0 002 2h14a2 2 0 002-2V8.6z" /></svg>
             </ContactButton>
           </div>
+          {isSuperadmin && !app.deletedAt && (
+            <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+              <Link
+                to={'/admin/applications/' + app.id + '/edit'}
+                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2.7 13.6l-.7 3.6a.7.7 0 00.8.8l3.6-.7L15.9 7.8 12.2 4.1 2.7 13.6zM17.7 5.9a1.3 1.3 0 000-1.8l-1.8-1.8a1.3 1.3 0 00-1.8 0l-1.2 1.2 3.6 3.6 1.2-1.2z" /></svg>
+                Edit details
+              </Link>
+              <button
+                type="button"
+                onClick={function () {
+                  setConfirmAction('trash');
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-accent-600 hover:bg-accent-50"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.44c-.8.08-1.58.17-2.37.29a.75.75 0 10.23 1.48l.15-.02.84 10.52A2.75 2.75 0 007.59 19h4.82a2.75 2.75 0 002.74-2.54L16 5.94l.15.02a.75.75 0 00.23-1.48A41 41 0 0014 4.19v-.44A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.67.03 2.5.08v-.33c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.33C8.33 4.03 9.16 4 10 4z" clipRule="evenodd" /></svg>
+                Move to trash
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Accept / Reject */}
-        <div className="shrink-0 lg:w-72">
+        <div className={'shrink-0 lg:w-72' + (app.deletedAt ? ' hidden' : '')}>
           {confirmStatus ? (
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-sm font-semibold text-slate-900">
@@ -383,7 +481,7 @@ function ApplicationDetailPage() {
 
         <div className="space-y-5">
           <Section title={'HR notes' + (app.notes.length > 0 ? ' (' + app.notes.length + ')' : '')}>
-            <form onSubmit={handleAddNote}>
+            <form onSubmit={handleAddNote} className={app.deletedAt ? 'hidden' : ''}>
               <label htmlFor="note" className="sr-only">
                 Add a note
               </label>
@@ -419,11 +517,26 @@ function ApplicationDetailPage() {
                   .reverse()
                   .map(function (note) {
                     return (
-                      <li key={note.id} className="rounded-lg bg-slate-50 px-3 py-2.5">
-                        <p className="whitespace-pre-line break-words text-sm text-slate-800">{note.text}</p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {note.authorName} · {formatDateTime(note.createdAt)}
-                        </p>
+                      <li key={note.id} className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2.5">
+                        <div className="min-w-0 flex-1">
+                          <p className="whitespace-pre-line break-words text-sm text-slate-800">{note.text}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {note.authorName} · {formatDateTime(note.createdAt)}
+                          </p>
+                        </div>
+                        {isSuperadmin && !app.deletedAt && (
+                          <button
+                            type="button"
+                            title="Delete this note"
+                            aria-label={'Delete note by ' + note.authorName}
+                            onClick={function () {
+                              setConfirmAction(note.id);
+                            }}
+                            className="-mr-1 shrink-0 rounded-md p-1 text-slate-400 hover:bg-accent-50 hover:text-accent-600"
+                          >
+                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+                          </button>
+                        )}
                       </li>
                     );
                   })}
@@ -482,6 +595,35 @@ function ApplicationDetailPage() {
           </Section>
         </div>
       </div>
+
+      {confirmAction === 'trash' && (
+        <ConfirmDialog
+          title={'Move ' + app.fullName + ' to the trash?'}
+          message="HR will not see it any more. You can restore it from the Trash page for 30 days; after that it is deleted for ever with its documents."
+          confirmLabel="Move to trash"
+          danger
+          busy={isBusy}
+          onConfirm={handleTrash}
+          onCancel={function () {
+            setConfirmAction('');
+          }}
+        />
+      )}
+      {confirmAction !== '' && confirmAction !== 'trash' && (
+        <ConfirmDialog
+          title="Delete this note?"
+          message="The note is removed for everyone. This cannot be undone (the activity log keeps a copy of its text)."
+          confirmLabel="Delete note"
+          danger
+          busy={isBusy}
+          onConfirm={function () {
+            handleDeleteNote(confirmAction);
+          }}
+          onCancel={function () {
+            setConfirmAction('');
+          }}
+        />
+      )}
     </AdminLayout>
   );
 }

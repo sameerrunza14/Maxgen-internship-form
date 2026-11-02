@@ -62,5 +62,7 @@ export function RequireAdmin({ children }) {
     );
   }
 
-  return <AdminContext.Provider value={{ admin: admin, signOut: signOut }}>{children}</AdminContext.Provider>;
+  // isSuperadmin: shows the extra pages (Users, Settings, Reports, Activity, Trash) and buttons (edit, delete)
+  const value = { admin: admin, isSuperadmin: admin.role === 'superadmin', signOut: signOut };
+  return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
 }

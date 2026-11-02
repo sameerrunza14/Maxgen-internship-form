@@ -4,11 +4,13 @@ import {
   getSemesterOptions,
   getPassoutYearOptions,
 } from '../../constants/formOptions';
+import { getFormConfig } from '../../config/formConfig';
 
 const SEMESTER_OPTIONS = getSemesterOptions();
-const PASSOUT_YEAR_OPTIONS = getPassoutYearOptions();
 
 function EducationStep({ values, errors, onChange, onBlur }) {
+  // How many years ahead comes from the admin Settings page
+  const passoutYearOptions = getPassoutYearOptions(getFormConfig().passoutYearsAhead);
   return (
     <div className="grid gap-x-5 gap-y-6 sm:grid-cols-2">
       <SelectInput
@@ -91,7 +93,7 @@ function EducationStep({ values, errors, onChange, onBlur }) {
         required
         placeholder="Select year"
         hint="The year you will complete your course."
-        options={PASSOUT_YEAR_OPTIONS}
+        options={passoutYearOptions}
         value={values.passoutYear}
         error={errors.passoutYear}
         onChange={onChange}
