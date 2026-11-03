@@ -67,7 +67,7 @@ Open page
 1. The filters live in the page address (e.g. `?status=pending&visited=today`), so Refresh and Back keep them.
 2. On every filter change:
    - `adminApi.getStats()` → numbers: total, pending, accepted, rejected, new today, visited today.
-   - `adminApi.listApplications()` → 20 rows per page.
+   - `adminApi.listApplications()` → 10 rows per page. Page buttons at the bottom (← Previous · 1 2 3 … · Next →) keep all filters (the page number is in the address too, `?page=2`).
 3. Typing in search waits 0.4 seconds before searching.
 4. Each row shows: Returning tag (applied before), internship type, Status (Pending / Accepted / Rejected) and Progress (Visited → Joined; grey = not yet).
 5. "N visited today" link → sets the filter `visited=today`.

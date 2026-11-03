@@ -106,6 +106,42 @@ function FilterSelect({ label, value, options, onChange }) {
   );
 }
 
+const pageButtonClass =
+  "rounded-lg border border-slate-300 bg-white py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40";
+
+// Which page numbers to show. Few pages -> all of them.
+// Many pages -> first, last, and the pages next to the current one, with "…" in the gaps.
+// Example: page 6 of 12 -> 1 … 5 6 7 … 12
+function pageNumbers(current, total) {
+  const numbers = [];
+  if (total <= 7) {
+    for (let i = 1; i <= total; i++) {
+      numbers.push(i);
+    }
+    return numbers;
+  }
+  numbers.push(1);
+  let from = Math.max(2, current - 1);
+  let to = Math.min(total - 1, current + 1);
+  if (current <= 3) {
+    to = 4;
+  }
+  if (current >= total - 2) {
+    from = total - 3;
+  }
+  if (from > 2) {
+    numbers.push("…");
+  }
+  for (let i = from; i <= to; i++) {
+    numbers.push(i);
+  }
+  if (to < total - 1) {
+    numbers.push("…");
+  }
+  numbers.push(total);
+  return numbers;
+}
+
 function ApplicationsPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -210,6 +246,12 @@ function ApplicationsPage() {
       next.delete("page"); // a new filter starts again from page 1
     }
     setSearchParams(next);
+  }
+
+  // Page buttons keep every filter and only change ?page=, then go back to the top of the page
+  function goToPage(number) {
+    updateFilter("page", String(number));
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   // Choosing a period. "Custom dates" starts with the last 7 days, which the admin can then change.
@@ -810,34 +852,61 @@ function ApplicationsPage() {
           </>
         )}
 
-        {/* Page buttons */}
+        {/* Page buttons: Previous · 1 2 3 … 9 · Next */}
         {pagination && pagination.totalPages > 1 && (
           <nav
-            className="mt-5 flex items-center justify-between gap-3"
+            className="mt-5 flex flex-wrap items-center justify-center gap-1.5 sm:justify-between"
             aria-label="Pages"
           >
             <button
               type="button"
               disabled={pagination.page <= 1}
               onClick={function () {
-                updateFilter("page", String(pagination.page - 1));
+                goToPage(pagination.page - 1);
               }}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className={pageButtonClass + " px-3"}
             >
-              Previous
+              ← Previous
             </button>
-            <span className="text-sm text-slate-500">
-              Page {pagination.page} of {pagination.totalPages}
-            </span>
+            <div className="flex flex-wrap items-center justify-center gap-1">
+              {pageNumbers(pagination.page, pagination.totalPages).map(function (number, index) {
+                if (number === "…") {
+                  return (
+                    <span key={"gap-" + index} className="px-1.5 text-sm text-slate-400" aria-hidden="true">
+                      …
+                    </span>
+                  );
+                }
+                const isCurrent = number === pagination.page;
+                return (
+                  <button
+                    key={number}
+                    type="button"
+                    aria-current={isCurrent ? "page" : undefined}
+                    aria-label={"Page " + number}
+                    onClick={function () {
+                      goToPage(number);
+                    }}
+                    className={
+                      isCurrent
+                        ? "h-9 min-w-9 rounded-lg bg-brand-800 px-2 text-sm font-semibold text-white"
+                        : pageButtonClass + " h-9 min-w-9 px-2"
+                    }
+                  >
+                    {number}
+                  </button>
+                );
+              })}
+            </div>
             <button
               type="button"
               disabled={pagination.page >= pagination.totalPages}
               onClick={function () {
-                updateFilter("page", String(pagination.page + 1));
+                goToPage(pagination.page + 1);
               }}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className={pageButtonClass + " px-3"}
             >
-              Next
+              Next →
             </button>
           </nav>
         )}
