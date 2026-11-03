@@ -100,7 +100,7 @@ function App() {
         <Route path="/admin/settings" element={<SuperadminPage><SettingsPage /></SuperadminPage>} />
         <Route path="/admin/reports" element={<SuperadminPage><ReportsPage /></SuperadminPage>} />
         <Route path="/admin/activity" element={<SuperadminPage><ActivityPage /></SuperadminPage>} />
-        <Route path="/admin/trash" element={<SuperadminPage><TrashPage /></SuperadminPage>} />
+        <Route path="/admin/trash" element={<RequireAdmin><TrashPage /></RequireAdmin>} />
 
         {/* Any other address goes to the form */}
         <Route path="*" element={<Navigate to="/" replace />} />

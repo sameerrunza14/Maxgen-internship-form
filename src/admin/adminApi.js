@@ -282,6 +282,15 @@ export async function editApplication(id, values) {
   return { application: result.data.application, message: result.message };
 }
 
+// HR: own notes only; superadmin: any note. Returns the updated application.
+export async function editNote(applicationId, noteId, text) {
+  const result = await request(
+    '/api/admin/applications/' + encodeURIComponent(applicationId) + '/notes/' + encodeURIComponent(noteId),
+    { method: 'PATCH', body: { text: text } }
+  );
+  return result.data.application;
+}
+
 export async function deleteNote(applicationId, noteId) {
   const result = await request(
     '/api/admin/applications/' + encodeURIComponent(applicationId) + '/notes/' + encodeURIComponent(noteId),

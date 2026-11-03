@@ -83,7 +83,8 @@ Open page
 2. **Accept / Reject** → "Are you sure?" box with the "Email the student" tick → `adminApi.updateStatus()` → shows "Email sent" or a warning.
 3. **Student visited the office** tick → `adminApi.updateVisited()` → shows the time and who ticked it.
 4. **Returning applicant** box (yellow) → all applications of this person, newest first; click one to open it.
-5. **Notes** → `adminApi.addNote()`; superadmin can delete with ✕ → `adminApi.deleteNote()`.
+5. **Notes** → `adminApi.addNote()`. Pencil → edit box → `adminApi.editNote()` (HR: own notes only; superadmin: any) → "(edited)".
+   Superadmin can delete with ✕ → `adminApi.deleteNote()`.
 6. **Documents** → `adminApi.openDocument()` gets the file with the sign-in token, then opens it in a new tab or downloads it.
 7. **Superadmin:**
    - Edit details → `EditApplicationPage.jsx` → `adminApi.editApplication()` → back with "Application details saved."
@@ -99,7 +100,7 @@ Open page
 | **Reports** (`ReportsPage.jsx`) | Choose dates (`DateFilter.jsx`) → `adminApi.getReports()` → summary cards + coloured bars (green accepted, yellow pending, red rejected). |
 | **Users** (`UsersPage.jsx`) | Add user → `adminApi.createUser()` → the set-password link is shown with a Copy button (also emailed). Role / on-off / new link → confirm dialog → `adminApi.updateUser()` / `sendSetupLink()`. |
 | **Activity log** (`ActivityPage.jsx`) | Filters person / action / dates → `adminApi.getActivity()` → 50 per page. Tick entries (or "Select all on this page") → "Move N to trash" → confirm → `adminApi.trashActivity()`. |
-| **Trash** (`TrashPage.jsx`) | Tab **Applications**: `listApplications({ trash: 'true' })` → days left; Restore; Delete for ever / Empty trash need typing DELETE. Tab **Activity log**: `getActivity({ trash: 'true' })` → tick entries → `restoreActivity()` or `deleteActivityForever()` (type DELETE). |
+| **Trash** (`TrashPage.jsx`, HR too) | HR sees only the applications list with Restore. Superadmin: tab **Applications**: `listApplications({ trash: 'true' })` → days left; Restore; Delete for ever / Empty trash need typing DELETE. Tab **Activity log**: `getActivity({ trash: 'true' })` → tick entries → `restoreActivity()` or `deleteActivityForever()` (type DELETE). |
 | **Settings** (`SettingsPage.jsx`) | `adminApi.getSettings()` → edit → Save → `adminApi.saveSettings()`. "Undo changes" puts back the saved values. The form uses the new values on the next page load. |
 
 ---

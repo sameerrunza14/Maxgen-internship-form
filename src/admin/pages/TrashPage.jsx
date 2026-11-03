@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
+import { useAdmin } from '../AdminAuth';
 import StatusBadge from '../components/StatusBadge';
 import { Alert, ConfirmDialog, PageTitle, dangerButton, secondaryButton, useErrorHandler } from '../components/AdminUi';
 import {
@@ -21,7 +22,8 @@ function daysLeft(deletedAt, keepDays) {
 }
 
 // ---------- Tab 1: deleted applications ----------
-function ApplicationsTrash() {
+// canDelete = superadmin: "Delete for ever" and "Empty trash". HR can only see and restore.
+function ApplicationsTrash({ canDelete }) {
   const handleError = useErrorHandler();
   const [page, setPage] = useState(1);
   const [data, setData] = useState(null);
@@ -94,7 +96,7 @@ function ApplicationsTrash() {
         <p className="text-sm text-slate-500">
           Deleted applications stay here for {keepDays} days, then they are deleted for ever with their documents.
         </p>
-        {pagination && pagination.total > 0 && (
+        {canDelete && pagination && pagination.total > 0 && (
           <button
             type="button"
             disabled={busyId !== null}
@@ -155,16 +157,18 @@ function ApplicationsTrash() {
                       >
                         {busyId === item.id && !confirm ? 'Restoring…' : 'Restore'}
                       </button>
-                      <button
-                        type="button"
-                        disabled={busyId !== null}
-                        onClick={function () {
-                          setConfirm({ kind: 'one', item: item });
-                        }}
-                        className={dangerButton + ' flex-1 sm:flex-none'}
-                      >
-                        Delete for ever
-                      </button>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          disabled={busyId !== null}
+                          onClick={function () {
+                            setConfirm({ kind: 'one', item: item });
+                          }}
+                          className={dangerButton + ' flex-1 sm:flex-none'}
+                        >
+                          Delete for ever
+                        </button>
+                      )}
                     </div>
                   </div>
                 </li>
@@ -435,15 +439,23 @@ const TABS = [
 ];
 
 function TrashPage() {
-  // ?tab=activity keeps the tab after a refresh
+  const { isSuperadmin } = useAdmin();
+  // ?tab=activity keeps the tab after a refresh (the Activity log tab is for the superadmin only)
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = searchParams.get('tab') === 'activity' ? 'activity' : 'applications';
+  const tab = isSuperadmin && searchParams.get('tab') === 'activity' ? 'activity' : 'applications';
 
   return (
     <AdminLayout>
-      <PageTitle title="Trash" subtitle="Everything deleted in the admin panel can be restored from here for 30 days." />
+      <PageTitle
+        title="Trash"
+        subtitle={
+          isSuperadmin
+            ? 'Everything deleted in the admin panel can be restored from here for 30 days.'
+            : 'Applications deleted by the superadmin. You can restore one if it was deleted by mistake.'
+        }
+      />
 
-      <div className="mt-5 inline-flex rounded-lg border border-slate-200 bg-white p-1" role="tablist">
+      <div className={isSuperadmin ? 'mt-5 inline-flex rounded-lg border border-slate-200 bg-white p-1' : 'hidden'} role="tablist">
         {TABS.map(function (item) {
           const isActive = tab === item.value;
           return (
@@ -466,7 +478,7 @@ function TrashPage() {
         })}
       </div>
 
-      {tab === 'activity' ? <ActivityTrash /> : <ApplicationsTrash />}
+      {tab === 'activity' ? <ActivityTrash /> : <ApplicationsTrash canDelete={isSuperadmin} />}
     </AdminLayout>
   );
 }

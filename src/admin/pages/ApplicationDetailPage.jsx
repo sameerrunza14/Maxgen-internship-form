@@ -11,6 +11,7 @@ import {
   openDocument,
   addNote,
   deleteNote,
+  editNote,
   updateVisited,
   moveToTrash,
   restoreApplication,
@@ -55,7 +56,7 @@ function ApplicationDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isSuperadmin } = useAdmin();
+  const { admin, isSuperadmin } = useAdmin();
   const [application, setApplication] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
@@ -70,6 +71,32 @@ function ApplicationDetailPage() {
   const [confirmAction, setConfirmAction] = useState(''); // 'trash' or a note id to delete
   const [isBusy, setIsBusy] = useState(false);
   const [isSavingVisit, setIsSavingVisit] = useState(false);
+  // Editing a note: { id, text } while the edit box is open
+  const [editingNote, setEditingNote] = useState(null);
+  const [editNoteError, setEditNoteError] = useState('');
+  const [isSavingNoteEdit, setIsSavingNoteEdit] = useState(false);
+
+  async function saveNoteEdit() {
+    if (!editingNote.text.trim()) {
+      setEditNoteError('Please write a note.');
+      return;
+    }
+    setIsSavingNoteEdit(true);
+    setEditNoteError('');
+    try {
+      const updated = await editNote(id, editingNote.id, editingNote.text.trim());
+      setApplication(updated);
+      setEditingNote(null);
+    } catch (error) {
+      if (error.fieldErrors && error.fieldErrors.note) {
+        setEditNoteError(error.fieldErrors.note);
+      } else {
+        handleError(error, setEditNoteError);
+      }
+    } finally {
+      setIsSavingNoteEdit(false);
+    }
+  }
 
   async function handleVisited(visited) {
     setIsSavingVisit(true);
@@ -277,7 +304,7 @@ function ApplicationDetailPage() {
         <div className="mt-4 flex flex-col gap-3 rounded-xl border border-accent-100 bg-accent-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-accent-600">
             <span className="font-semibold">This application is in the trash.</span> Deleted {formatDateTime(app.deletedAt)}
-            {app.deletedBy && ' by ' + app.deletedBy.name}. HR cannot see it. Restore it to change it.
+            {app.deletedBy && ' by ' + app.deletedBy.name}. It is hidden from the applications list. Restore it to change it.
           </p>
           <button type="button" disabled={isBusy} onClick={handleRestore} className={secondaryButton + ' shrink-0'}>
             {isBusy ? 'Restoring…' : 'Restore'}
@@ -610,14 +637,78 @@ function ApplicationDetailPage() {
                   .slice()
                   .reverse()
                   .map(function (note) {
+                    // HR can edit their own notes; the superadmin can edit any note
+                    const canEdit = !app.deletedAt && (isSuperadmin || note.adminId === admin.id);
+                    const isEditing = editingNote && editingNote.id === note.id;
+                    if (isEditing) {
+                      return (
+                        <li key={note.id} className="rounded-lg bg-slate-50 px-3 py-2.5 ring-1 ring-brand-200">
+                          <label htmlFor={'edit-note-' + note.id} className="sr-only">
+                            Edit note
+                          </label>
+                          <textarea
+                            id={'edit-note-' + note.id}
+                            rows={3}
+                            maxLength={500}
+                            value={editingNote.text}
+                            autoFocus
+                            onChange={function (event) {
+                              setEditingNote({ id: note.id, text: event.target.value });
+                              setEditNoteError('');
+                            }}
+                            className="block w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15 sm:text-sm"
+                          />
+                          {editNoteError && <p role="alert" className="mt-1.5 text-[13px] font-medium text-accent-600">{editNoteError}</p>}
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <span className="text-xs text-slate-400">{editingNote.text.length}/500</span>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                disabled={isSavingNoteEdit}
+                                onClick={function () {
+                                  setEditingNote(null);
+                                  setEditNoteError('');
+                                }}
+                                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isSavingNoteEdit}
+                                onClick={saveNoteEdit}
+                                className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:opacity-60"
+                              >
+                                {isSavingNoteEdit ? 'Saving…' : 'Save'}
+                              </button>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    }
                     return (
                       <li key={note.id} className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2.5">
                         <div className="min-w-0 flex-1">
                           <p className="whitespace-pre-line break-words text-sm text-slate-800">{note.text}</p>
                           <p className="mt-1 text-xs text-slate-500">
                             {note.authorName} · {formatDateTime(note.createdAt)}
+                            {note.editedAt && <span title={'Edited ' + formatDateTime(note.editedAt)}> · (edited)</span>}
                           </p>
                         </div>
+                        {canEdit && (
+                          <button
+                            type="button"
+                            title="Edit this note"
+                            aria-label={'Edit note by ' + note.authorName}
+                            onClick={function () {
+                              setEditingNote({ id: note.id, text: note.text });
+                              setEditNoteError('');
+                            }}
+                            className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                          >
+                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2.7 13.6l-.7 3.6a.7.7 0 00.8.8l3.6-.7L15.9 7.8 12.2 4.1 2.7 13.6zM17.7 5.9a1.3 1.3 0 000-1.8l-1.8-1.8a1.3 1.3 0 00-1.8 0l-1.2 1.2 3.6 3.6 1.2-1.2z" /></svg>
+                          </button>
+                        )}
                         {isSuperadmin && !app.deletedAt && (
                           <button
                             type="button"

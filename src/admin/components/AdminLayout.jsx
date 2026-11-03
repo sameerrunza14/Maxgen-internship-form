@@ -8,7 +8,7 @@ const MENU = [
   { to: '/admin/reports', label: 'Reports', superadminOnly: true },
   { to: '/admin/users', label: 'Users', superadminOnly: true },
   { to: '/admin/activity', label: 'Activity log', superadminOnly: true },
-  { to: '/admin/trash', label: 'Trash', superadminOnly: true },
+  { to: '/admin/trash', label: 'Trash' }, // HR can see and restore
   { to: '/admin/settings', label: 'Settings', superadminOnly: true },
 ];
 
@@ -62,11 +62,14 @@ function AdminLayout({ children }) {
             </button>
           </div>
         </div>
-        {/* Menu (superadmin). Scrolls sideways on a phone. */}
-        {isSuperadmin && (
+        {/* Menu: HR sees Applications + Trash, the superadmin sees everything. Scrolls sideways on a phone. */}
+        {(
           <nav className="mx-auto max-w-7xl overflow-x-auto px-2 sm:px-4" aria-label="Admin menu">
             <ul className="flex min-w-max gap-1">
               {MENU.map(function (item) {
+                if (item.superadminOnly && !isSuperadmin) {
+                  return null;
+                }
                 return (
                   <li key={item.to}>
                     <NavLink
