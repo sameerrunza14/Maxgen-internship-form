@@ -82,6 +82,7 @@ Open page
 1. Open → `adminApi.getApplication(id)` (details + notes + documents + other applications of the same person).
 2. **Accept / Reject** → "Are you sure?" box with the "Email the student" tick → `adminApi.updateStatus()` → shows "Email sent" or a warning.
 3. **Student visited the office** tick → `adminApi.updateVisited()` → shows the time and who ticked it.
+   **Student joined the internship** tick → `adminApi.updateJoined()` (same way).
 4. **Returning applicant** box (yellow) → all applications of this person, newest first; click one to open it.
 5. **Notes** → `adminApi.addNote()`. Pencil → edit box → `adminApi.editNote()` (HR: own notes only; superadmin: any) → "(edited)".
    Superadmin can delete with ✕ → `adminApi.deleteNote()`.

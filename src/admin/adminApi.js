@@ -186,9 +186,13 @@ export async function downloadExcel(filters) {
   } else if (filters.to) {
     datePart = 'up to ' + filters.to;
   }
+  const now = new Date();
+  const todayText = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  if (filters.joined === 'today') {
+    saveBlob(blob, 'Maxgen joined today ' + todayText + '.xlsx');
+    return;
+  }
   if (filters.visited === 'today') {
-    const now = new Date();
-    const todayText = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     saveBlob(blob, 'Maxgen office visitors ' + todayText + '.xlsx');
     return;
   }
@@ -236,6 +240,15 @@ export async function updateVisited(id, visited) {
   const result = await request('/api/admin/applications/' + encodeURIComponent(id) + '/visited', {
     method: 'PATCH',
     body: { visited: visited },
+  });
+  return result.data.application;
+}
+
+// Ticks / unticks "Student joined the internship". Returns the updated application.
+export async function updateJoined(id, joined) {
+  const result = await request('/api/admin/applications/' + encodeURIComponent(id) + '/joined', {
+    method: 'PATCH',
+    body: { joined: joined },
   });
   return result.data.application;
 }

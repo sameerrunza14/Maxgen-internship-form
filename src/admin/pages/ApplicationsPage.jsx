@@ -7,7 +7,7 @@ import {
 } from "react-router-dom";
 import AdminLayout from "../components/AdminLayout";
 import StatusBadge from "../components/StatusBadge";
-import { VisitedTag, ReturningTag } from "../components/Tags";
+import { VisitedTag, ReturningTag, JoinedTag } from "../components/Tags";
 import { Alert } from "../components/AdminUi";
 import { useAdmin } from "../AdminAuth";
 import {
@@ -37,6 +37,13 @@ import {
 const APPLICANT_OPTIONS = [
   { value: "returning", label: "Returning (applied before)" },
   { value: "new", label: "First time" },
+];
+
+// "Joined" filter: students who joined the internship (ticked by HR on the application page)
+const JOINED_OPTIONS = [
+  { value: "today", label: "Joined today" },
+  { value: "yes", label: "Joined (any day)" },
+  { value: "no", label: "Not joined" },
 ];
 
 const VISITED_OPTIONS = [
@@ -121,6 +128,7 @@ function ApplicationsPage() {
     mode: searchParams.get("mode") || "",
     internshipType: searchParams.get("internshipType") || "",
     visited: searchParams.get("visited") || "", // '', today, yes, no
+    joined: searchParams.get("joined") || "", // '', today, yes, no
     applicant: searchParams.get("applicant") || "", // '', returning, new
     search: searchParams.get("search") || "",
     period: searchParams.get("period") || "", // '', today, yesterday, week, month, lastMonth, custom
@@ -144,6 +152,7 @@ function ApplicationsPage() {
     mode: filters.mode,
     internshipType: filters.internshipType,
     visited: filters.visited,
+    joined: filters.joined,
     applicant: filters.applicant,
     search: filters.search,
     from: dateRange.from,
@@ -314,6 +323,7 @@ function ApplicationsPage() {
     filters.mode ||
     filters.internshipType ||
     filters.visited ||
+    filters.joined ||
     filters.applicant ||
     filters.search ||
     filters.period;
@@ -344,6 +354,17 @@ function ApplicationsPage() {
                   title="Show the students who visited the office today"
                 >
                   {stats.visitedToday} visited today
+                </button>
+                {" · "}
+                <button
+                  type="button"
+                  onClick={function () {
+                    updateFilter("joined", "today");
+                  }}
+                  className="font-semibold text-emerald-700 hover:underline"
+                  title="Show the students who joined today"
+                >
+                  {stats.joinedToday} joined today
                 </button>
               </>
             )}
@@ -376,7 +397,9 @@ function ApplicationsPage() {
             </svg>
             {isDownloading
               ? "Preparing…"
-              : filters.visited === "today"
+              : filters.joined === "today"
+                ? "Download joined today (Excel)"
+                : filters.visited === "today"
                 ? "Download today's visitors (Excel)"
                 : hasFilters
                   ? "Download filtered (Excel)"
@@ -518,6 +541,14 @@ function ApplicationsPage() {
           options={VISITED_OPTIONS}
           onChange={function (value) {
             updateFilter("visited", value);
+          }}
+        />
+        <FilterSelect
+          label="Joined"
+          value={filters.joined}
+          options={JOINED_OPTIONS}
+          onChange={function (value) {
+            updateFilter("joined", value);
           }}
         />
         <FilterSelect
@@ -714,6 +745,7 @@ function ApplicationsPage() {
                           <div className="flex flex-col items-start gap-1">
                             <StatusBadge status={item.status} />
                             {item.visitedAt && <VisitedTag />}
+                          {item.joinedAt && <JoinedTag />}
                           </div>
                         </td>
                       </tr>
@@ -749,6 +781,7 @@ function ApplicationsPage() {
                         <div className="flex shrink-0 flex-col items-end gap-1">
                           <StatusBadge status={item.status} />
                           {item.visitedAt && <VisitedTag />}
+                          {item.joinedAt && <JoinedTag />}
                         </div>
                       </div>
                       <p className="mt-3 text-sm font-medium text-slate-800">

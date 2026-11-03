@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import StatusBadge from '../components/StatusBadge';
-import { ReturningTag, VisitedTag, ordinal } from '../components/Tags';
+import { ReturningTag, VisitedTag, JoinedTag, ordinal } from '../components/Tags';
 import { ConfirmDialog, secondaryButton } from '../components/AdminUi';
 import { useAdmin } from '../AdminAuth';
 import {
@@ -13,6 +13,7 @@ import {
   deleteNote,
   editNote,
   updateVisited,
+  updateJoined,
   moveToTrash,
   restoreApplication,
   SessionExpiredError,
@@ -95,6 +96,21 @@ function ApplicationDetailPage() {
       }
     } finally {
       setIsSavingNoteEdit(false);
+    }
+  }
+
+  const [isSavingJoin, setIsSavingJoin] = useState(false);
+
+  async function handleJoined(joined) {
+    setIsSavingJoin(true);
+    setActionError('');
+    try {
+      const updated = await updateJoined(id, joined);
+      setApplication(updated);
+    } catch (error) {
+      handleError(error, setActionError);
+    } finally {
+      setIsSavingJoin(false);
     }
   }
 
@@ -492,6 +508,34 @@ function ApplicationDetailPage() {
               </span>
             </span>
           </label>
+
+          {/* Joined: HR ticks this when the student starts the internship */}
+          <label
+            className={
+              'mt-2 flex cursor-pointer items-start gap-2.5 rounded-xl border px-3.5 py-3 transition ' +
+              (app.joinedAt ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white hover:border-slate-300')
+            }
+          >
+            <input
+              type="checkbox"
+              checked={Boolean(app.joinedAt)}
+              disabled={isSavingJoin}
+              onChange={function (event) {
+                handleJoined(event.target.checked);
+              }}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700"
+            />
+            <span className="text-[13px] leading-snug">
+              <span className="block font-semibold text-slate-900">
+                {isSavingJoin ? 'Saving…' : 'Student joined the internship'}
+              </span>
+              <span className="block text-slate-500">
+                {app.joinedAt
+                  ? formatDateTime(app.joinedAt) + (app.joinedBy ? ' · marked by ' + app.joinedBy.name : '')
+                  : 'Tick on the day the student starts.'}
+              </span>
+            </span>
+          </label>
         </div>
       </div>
 
@@ -548,6 +592,7 @@ function ApplicationDetailPage() {
                     <div className="flex shrink-0 items-center gap-1.5">
                       <StatusBadge status={item.status} />
                       {item.visitedAt && <VisitedTag />}
+                      {item.joinedAt && <JoinedTag />}
                     </div>
                   </li>
                 );
