@@ -368,6 +368,24 @@ export async function getActivity(filters) {
   return result.data;
 }
 
+// Activity log trash (superadmin). Each returns the message to show.
+export async function trashActivity(ids) {
+  const result = await request('/api/admin/activity/trash', { method: 'POST', body: { ids: ids } });
+  return result.message;
+}
+
+export async function restoreActivity(ids) {
+  const result = await request('/api/admin/activity/restore', { method: 'POST', body: { ids: ids } });
+  return result.message;
+}
+
+// ids = list of ids, or null to empty the whole log trash
+export async function deleteActivityForever(ids) {
+  const body = ids ? { ids: ids } : { all: true };
+  const result = await request('/api/admin/activity/delete-forever', { method: 'POST', body: body });
+  return result.message;
+}
+
 // The technologies currently on the form (Settings page), for the Technology filter
 export async function getFormTechnologies() {
   const response = await fetch(API_BASE_URL + '/api/applications/config');

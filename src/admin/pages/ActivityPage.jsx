@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import DateFilter from '../components/DateFilter';
-import { Alert, PageTitle, secondaryButton, useErrorHandler } from '../components/AdminUi';
-import { getActivity } from '../adminApi';
+import { Alert, ConfirmDialog, PageTitle, dangerButton, secondaryButton, useErrorHandler } from '../components/AdminUi';
+import { getActivity, trashActivity } from '../adminApi';
 import { getDateRange } from '../dateRanges';
 import { formatDateTime } from '../formatters';
 
@@ -33,9 +33,14 @@ function ActivityPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [selected, setSelected] = useState([]); // ids of ticked entries
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [reloadCount, setReloadCount] = useState(0);
 
   const range = getDateRange(dateValue.period, dateValue.from, dateValue.to);
-  const requestKey = [range.from, range.to, adminId, action, page].join('|');
+  const requestKey = [range.from, range.to, adminId, action, page, reloadCount].join('|');
 
   useEffect(
     function () {
@@ -46,6 +51,7 @@ function ActivityPage() {
         .then(function (result) {
           if (!cancelled) {
             setData(result);
+            setSelected([]);
             setIsLoading(false);
           }
         })
@@ -73,9 +79,51 @@ function ActivityPage() {
   const items = data ? data.items : [];
   const pagination = data ? data.pagination : null;
 
+  // Entries that can be ticked (records of log changes are always kept)
+  const selectableIds = [];
+  for (let i = 0; i < items.length; i++) {
+    if (!items[i].isProtected) {
+      selectableIds.push(items[i].id);
+    }
+  }
+  const allSelected = selectableIds.length > 0 && selected.length === selectableIds.length;
+
+  function toggleOne(id) {
+    if (selected.includes(id)) {
+      setSelected(
+        selected.filter(function (item) {
+          return item !== id;
+        })
+      );
+    } else {
+      setSelected(selected.concat([id]));
+    }
+  }
+
+  function toggleAll() {
+    setSelected(allSelected ? [] : selectableIds);
+  }
+
+  async function handleRemove() {
+    setIsRemoving(true);
+    setError('');
+    try {
+      const message = await trashActivity(selected);
+      setNotice(message);
+      setIsConfirming(false);
+      setReloadCount(reloadCount + 1);
+    } catch (removeError) {
+      setIsConfirming(false);
+      handleError(removeError, setError);
+    } finally {
+      setIsRemoving(false);
+    }
+  }
+
   return (
     <AdminLayout>
-      <PageTitle title="Activity log" subtitle="Who did what in the admin panel. Nobody can change or delete this log." />
+      <PageTitle title="Activity log" subtitle="Who did what in the admin panel. Removed entries go to the Trash for 30 days, and every removal is recorded here." />
+      <Alert type="success" className="mt-5">{notice}</Alert>
 
       <div className="mt-5 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3">
         <label className="block">
@@ -125,13 +173,54 @@ function ActivityPage() {
 
       <div className={'mt-5 transition-opacity ' + (isLoading && data ? 'opacity-60' : '')}>
         {!data && isLoading && <p className="py-16 text-center text-sm text-slate-500">Loading…</p>}
-        {pagination && <p className="mb-3 text-sm text-slate-500">{pagination.total === 0 ? 'Nothing found' : pagination.total + ' entries'}</p>}
+        {pagination && (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-3 text-sm text-slate-500">
+              {selectableIds.length > 0 && (
+                <label className="flex cursor-pointer items-center gap-2 font-medium text-slate-700">
+                  <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 accent-brand-700" />
+                  Select all on this page
+                </label>
+              )}
+              <span>{pagination.total === 0 ? 'Nothing found' : pagination.total + ' entries'}</span>
+            </div>
+            {selected.length > 0 && (
+              <button
+                type="button"
+                onClick={function () {
+                  setNotice('');
+                  setIsConfirming(true);
+                }}
+                className={dangerButton + ' !py-2'}
+              >
+                Move {selected.length} to trash
+              </button>
+            )}
+          </div>
+        )}
 
         {items.length > 0 && (
           <ol className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
             {items.map(function (item) {
               return (
-                <li key={item.id} className="flex gap-3 px-4 py-3">
+                <li key={item.id} className={'flex gap-3 px-4 py-3' + (selected.includes(item.id) ? ' bg-accent-50/60' : '')}>
+                  {item.isProtected ? (
+                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center text-slate-400" title="Records of log changes are always kept">
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                  ) : (
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(item.id)}
+                      onChange={function () {
+                        toggleOne(item.id);
+                      }}
+                      aria-label={'Select entry: ' + item.adminName + ' ' + item.actionLabel}
+                      className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand-700"
+                    />
+                  )}
                   <span className={'mt-1.5 h-2 w-2 shrink-0 rounded-full ' + actionColour(item.action)} aria-hidden="true" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-slate-800">
@@ -189,6 +278,20 @@ function ActivityPage() {
           </nav>
         )}
       </div>
+
+      {isConfirming && (
+        <ConfirmDialog
+          title={'Move ' + selected.length + (selected.length === 1 ? ' entry' : ' entries') + ' to the trash?'}
+          message="They are hidden from the activity log. You can restore them from Trash → Activity log for 30 days. This removal itself is recorded in the log."
+          confirmLabel="Move to trash"
+          danger
+          busy={isRemoving}
+          onConfirm={handleRemove}
+          onCancel={function () {
+            setIsConfirming(false);
+          }}
+        />
+      )}
     </AdminLayout>
   );
 }
