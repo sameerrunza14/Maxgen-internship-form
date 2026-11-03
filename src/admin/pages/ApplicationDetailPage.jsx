@@ -646,6 +646,56 @@ function ApplicationDetailPage() {
               <Detail label="Letters required" value={app.letters.join(', ')} wide />
             </dl>
           </Section>
+
+          <Section title="Documents">
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {DOCUMENTS.map(function (documentConfig) {
+                const saved = app.documents ? app.documents[documentConfig.name] : null;
+                return (
+                  <li key={documentConfig.name} className="rounded-lg border border-slate-200 p-3">
+                    <p className="text-sm font-semibold text-slate-900">{documentConfig.label}</p>
+                    {saved ? (
+                      <>
+                        <p className="mt-0.5 truncate text-[13px] text-slate-500" title={saved.originalName}>
+                          {saved.originalName} · {formatFileSize(saved.size)}
+                        </p>
+                        <div className="mt-2.5 flex gap-2">
+                          <button
+                            type="button"
+                            disabled={openingDocument !== ''}
+                            onClick={function () {
+                              handleDocument(documentConfig, false);
+                            }}
+                            className="flex-1 rounded-lg bg-brand-700 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-800 disabled:opacity-60"
+                          >
+                            {openingDocument === documentConfig.name + '-view' ? 'Opening…' : 'View'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={openingDocument !== ''}
+                            onClick={function () {
+                              handleDocument(documentConfig, true);
+                            }}
+                            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                          >
+                            {openingDocument === documentConfig.name + '-download' ? 'Downloading…' : 'Download'}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="mt-0.5 text-[13px] text-slate-400">Not uploaded</p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </Section>
+
+          <Section title="Declaration">
+            <p className="text-sm text-slate-700">
+              {app.declarationAccepted ? 'The applicant accepted the declaration and terms.' : 'Not accepted'}
+            </p>
+          </Section>
         </div>
 
         <div className="space-y-5">
@@ -778,56 +828,6 @@ function ApplicationDetailPage() {
           </Section>
 
           <CertificatesSection application={app} isSuperadmin={isSuperadmin} onUpdated={setApplication} />
-
-          <Section title="Documents">
-            <ul className="space-y-3">
-              {DOCUMENTS.map(function (documentConfig) {
-                const saved = app.documents ? app.documents[documentConfig.name] : null;
-                return (
-                  <li key={documentConfig.name} className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-sm font-semibold text-slate-900">{documentConfig.label}</p>
-                    {saved ? (
-                      <>
-                        <p className="mt-0.5 truncate text-[13px] text-slate-500" title={saved.originalName}>
-                          {saved.originalName} · {formatFileSize(saved.size)}
-                        </p>
-                        <div className="mt-2.5 flex gap-2">
-                          <button
-                            type="button"
-                            disabled={openingDocument !== ''}
-                            onClick={function () {
-                              handleDocument(documentConfig, false);
-                            }}
-                            className="flex-1 rounded-lg bg-brand-700 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-800 disabled:opacity-60"
-                          >
-                            {openingDocument === documentConfig.name + '-view' ? 'Opening…' : 'View'}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={openingDocument !== ''}
-                            onClick={function () {
-                              handleDocument(documentConfig, true);
-                            }}
-                            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                          >
-                            {openingDocument === documentConfig.name + '-download' ? 'Downloading…' : 'Download'}
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <p className="mt-0.5 text-[13px] text-slate-400">Not uploaded</p>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </Section>
-
-          <Section title="Declaration">
-            <p className="text-sm text-slate-700">
-              {app.declarationAccepted ? 'The applicant accepted the declaration and terms.' : 'Not accepted'}
-            </p>
-          </Section>
         </div>
       </div>
 
