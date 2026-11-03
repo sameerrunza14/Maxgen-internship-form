@@ -49,3 +49,38 @@ export function JoinedTag() {
     </span>
   );
 }
+
+// Two small steps in one line: "Visited" and "Joined".
+// A done step is coloured with a tick; a step not done yet is grey with an empty circle,
+// so HR can see at a glance what is still left for each student.
+function ProgressStep({ label, done, doneClassName }) {
+  if (done) {
+    return (
+      <span className={"inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold " + doneClassName}>
+        <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clipRule="evenodd" />
+        </svg>
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium text-slate-400 ring-1 ring-slate-200">
+      <span className="h-2.5 w-2.5 rounded-full border-[1.5px] border-slate-300" aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
+
+export function ProgressSteps({ visitedAt, joinedAt }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1"
+      aria-label={"Visited: " + (visitedAt ? "yes" : "no") + ", Joined: " + (joinedAt ? "yes" : "no")}
+    >
+      <ProgressStep label="Visited" done={Boolean(visitedAt)} doneClassName="bg-sky-50 text-sky-800 ring-1 ring-sky-200" />
+      <span className={"h-px w-2 " + (joinedAt ? "bg-emerald-400" : "bg-slate-200")} aria-hidden="true" />
+      <ProgressStep label="Joined" done={Boolean(joinedAt)} doneClassName="bg-emerald-600 text-white" />
+    </span>
+  );
+}

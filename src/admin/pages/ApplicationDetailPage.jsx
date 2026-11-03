@@ -365,7 +365,7 @@ function ApplicationDetailPage() {
               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3 4a2 2 0 00-2 2v.4l9 4.8 9-4.8V6a2 2 0 00-2-2H3z" /><path d="M19 8.6l-9 4.8-9-4.8V14a2 2 0 002 2h14a2 2 0 002-2V8.6z" /></svg>
             </ContactButton>
           </div>
-          {isSuperadmin && !app.deletedAt && (
+          {!app.deletedAt && (
             <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
               <Link
                 to={'/admin/applications/' + app.id + '/edit'}
@@ -374,6 +374,7 @@ function ApplicationDetailPage() {
                 <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2.7 13.6l-.7 3.6a.7.7 0 00.8.8l3.6-.7L15.9 7.8 12.2 4.1 2.7 13.6zM17.7 5.9a1.3 1.3 0 000-1.8l-1.8-1.8a1.3 1.3 0 00-1.8 0l-1.2 1.2 3.6 3.6 1.2-1.2z" /></svg>
                 Edit details
               </Link>
+              {isSuperadmin && (
               <button
                 type="button"
                 onClick={function () {
@@ -384,6 +385,7 @@ function ApplicationDetailPage() {
                 <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.44c-.8.08-1.58.17-2.37.29a.75.75 0 10.23 1.48l.15-.02.84 10.52A2.75 2.75 0 007.59 19h4.82a2.75 2.75 0 002.74-2.54L16 5.94l.15.02a.75.75 0 00.23-1.48A41 41 0 0014 4.19v-.44A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.67.03 2.5.08v-.33c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.33C8.33 4.03 9.16 4 10 4z" clipRule="evenodd" /></svg>
                 Move to trash
               </button>
+              )}
             </div>
           )}
         </div>

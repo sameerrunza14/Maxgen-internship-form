@@ -106,7 +106,7 @@ frontend/
 | `AdminUi.jsx` | `src/admin/components/` | Shared pieces: page title, coloured message box, card, "Are you sure?" dialog (can ask to type DELETE), button styles, the "only superadmin" guard, error handler (expired sign-in → login page). |
 | `DateFilter.jsx` | `src/admin/components/` | Date dropdown + From / To boxes (Reports and Activity pages). |
 | `StatusBadge.jsx` | `src/admin/components/` | Pending / Accepted / Rejected badge. |
-| `Tags.jsx` | `src/admin/components/` | "✓ Visited", "✓ Joined" and "Returning · 2nd time" tags. |
+| `Tags.jsx` | `src/admin/components/` | "✓ Visited", "✓ Joined" and "Returning · 2nd time" tags, and the Progress steps in the list (Visited → Joined: coloured = done, grey = not yet). |
 | `AuthLayout.jsx` | `src/admin/components/` | The centered layout of login / forgot / reset password pages. |
 | `PasswordInput.jsx` | `src/admin/components/` | Password box with show / hide. |
 
@@ -118,9 +118,9 @@ frontend/
 | `ForgotPasswordPage.jsx` | `/admin/forgot-password` | everyone | Asks for the email, sends a reset link. |
 | `ResetPasswordPage.jsx` | `/admin/reset-password` | everyone | Choose a new password from the email link. Shows "Welcome! Set your password" for a new user's link. |
 | `ChangePasswordPage.jsx` | `/admin/password` | signed in | Change your own password. |
-| `ApplicationsPage.jsx` | `/admin` | HR + superadmin | The list: numbers at the top ("new today", "visited today", "joined today"), status cards, search, filters (technology, location, mode, type, visited, joined, applicant, applied date), table on laptop / cards on phone, Visited / Joined / Returning tags, Excel download. Superadmin: ZIP backup button. |
-| `ApplicationDetailPage.jsx` | `/admin/applications/:id` | HR + superadmin | One application: details, call / WhatsApp / email buttons, accept / reject (+ email tick), "Student visited the office" and "Student joined the internship" ticks, returning-applicant history, HR notes (pencil = edit: HR own notes, superadmin any), documents (view / download). Restore when in the trash (HR + superadmin). Superadmin: Edit details, Move to trash, delete note. |
-| `EditApplicationPage.jsx` | `/admin/applications/:id/edit` | superadmin | Correct the student's details. |
+| `ApplicationsPage.jsx` | `/admin` | HR + superadmin | The list: numbers at the top ("new today", "visited today", "joined today"), status cards, search, filters (technology, location, mode, type, visited, joined, applicant, applied date), table on laptop / cards on phone, Status column + Progress column (Visited → Joined), Returning tag, Excel download. Superadmin: ZIP backup button. |
+| `ApplicationDetailPage.jsx` | `/admin/applications/:id` | HR + superadmin | One application: details, call / WhatsApp / email buttons, accept / reject (+ email tick), "Student visited the office" and "Student joined the internship" ticks, returning-applicant history, HR notes (pencil = edit: HR own notes, superadmin any), documents (view / download). Edit details (HR + superadmin). Restore when in the trash (HR + superadmin). Superadmin: Move to trash, delete note. |
+| `EditApplicationPage.jsx` | `/admin/applications/:id/edit` | HR + superadmin | Correct the student's details. |
 | `ReportsPage.jsx` | `/admin/reports` | superadmin | Totals, acceptance rate, time to decide, visited, returning, and bars by internship type, technology, month, source, duration, location, mode, qualification. |
 | `UsersPage.jsx` | `/admin/users` | superadmin | Add users, change role, turn off / on, send set-password link (with Copy button). |
 | `ActivityPage.jsx` | `/admin/activity` | superadmin | Who did what and when, with filters. Tick entries → "Move to trash". Lock icon = record of a log change, cannot be removed. |

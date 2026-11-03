@@ -69,7 +69,7 @@ Open page
    - `adminApi.getStats()` → numbers: total, pending, accepted, rejected, new today, visited today.
    - `adminApi.listApplications()` → 20 rows per page.
 3. Typing in search waits 0.4 seconds before searching.
-4. Each row shows: Returning tag (applied before), internship type, status, Visited tag.
+4. Each row shows: Returning tag (applied before), internship type, Status (Pending / Accepted / Rejected) and Progress (Visited → Joined; grey = not yet).
 5. "N visited today" link → sets the filter `visited=today`.
 6. **Download Excel** → `adminApi.downloadExcel()` with the same filters
    (with "Visited today" the button says "Download today's visitors" and the file is `Maxgen office visitors <date>.xlsx`).
@@ -87,10 +87,9 @@ Open page
 5. **Notes** → `adminApi.addNote()`. Pencil → edit box → `adminApi.editNote()` (HR: own notes only; superadmin: any) → "(edited)".
    Superadmin can delete with ✕ → `adminApi.deleteNote()`.
 6. **Documents** → `adminApi.openDocument()` gets the file with the sign-in token, then opens it in a new tab or downloads it.
-7. **Superadmin:**
-   - Edit details → `EditApplicationPage.jsx` → `adminApi.editApplication()` → back with "Application details saved."
-   - Move to trash → confirm → `adminApi.moveToTrash()` → back to the list.
-   - In trash → yellow-red bar with Restore → `adminApi.restoreApplication()`.
+7. **Edit details** (HR + superadmin) → `EditApplicationPage.jsx` → `adminApi.editApplication()` → back with "Application details saved."
+8. **Move to trash** (superadmin) → confirm → `adminApi.moveToTrash()` → back to the list.
+9. **In trash** → yellow-red bar with Restore (HR + superadmin) → `adminApi.restoreApplication()`.
 
 ---
 

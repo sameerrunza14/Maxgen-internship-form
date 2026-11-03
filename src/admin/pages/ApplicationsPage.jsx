@@ -7,7 +7,7 @@ import {
 } from "react-router-dom";
 import AdminLayout from "../components/AdminLayout";
 import StatusBadge from "../components/StatusBadge";
-import { VisitedTag, ReturningTag, JoinedTag } from "../components/Tags";
+import { ReturningTag, ProgressSteps } from "../components/Tags";
 import { Alert } from "../components/AdminUi";
 import { useAdmin } from "../AdminAuth";
 import {
@@ -692,6 +692,7 @@ function ApplicationsPage() {
                     </th>
                     <th className="px-4 py-3 font-medium">Applied</th>
                     <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Progress</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -742,11 +743,10 @@ function ApplicationsPage() {
                           {formatDate(item.createdAt)}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex flex-col items-start gap-1">
-                            <StatusBadge status={item.status} />
-                            {item.visitedAt && <VisitedTag />}
-                          {item.joinedAt && <JoinedTag />}
-                          </div>
+                          <StatusBadge status={item.status} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <ProgressSteps visitedAt={item.visitedAt} joinedAt={item.joinedAt} />
                         </td>
                       </tr>
                     );
@@ -778,10 +778,8 @@ function ApplicationsPage() {
                             </p>
                           )}
                         </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1">
+                        <div className="shrink-0">
                           <StatusBadge status={item.status} />
-                          {item.visitedAt && <VisitedTag />}
-                          {item.joinedAt && <JoinedTag />}
                         </div>
                       </div>
                       <p className="mt-3 text-sm font-medium text-slate-800">
@@ -796,6 +794,9 @@ function ApplicationsPage() {
                       <p className="mt-0.5 text-[13px] text-slate-500">
                         {item.location} · {item.mode} ·{" "}
                         {item.durations.join(", ")}
+                      </p>
+                      <p className="mt-2.5">
+                        <ProgressSteps visitedAt={item.visitedAt} joinedAt={item.joinedAt} />
                       </p>
                       <p className="mt-2 text-xs text-slate-400">
                         {item.referenceNo} · Applied{" "}

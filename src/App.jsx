@@ -95,7 +95,7 @@ function App() {
           }
         />
 
-        <Route path="/admin/applications/:id/edit" element={<SuperadminPage><EditApplicationPage /></SuperadminPage>} />
+        <Route path="/admin/applications/:id/edit" element={<RequireAdmin><EditApplicationPage /></RequireAdmin>} />
         <Route path="/admin/users" element={<SuperadminPage><UsersPage /></SuperadminPage>} />
         <Route path="/admin/settings" element={<SuperadminPage><SettingsPage /></SuperadminPage>} />
         <Route path="/admin/reports" element={<SuperadminPage><ReportsPage /></SuperadminPage>} />
