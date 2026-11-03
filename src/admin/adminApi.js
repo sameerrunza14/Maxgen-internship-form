@@ -59,7 +59,7 @@ async function request(path, options) {
     response = await fetch(API_BASE_URL + path, {
       method: settings.method || 'GET',
       headers: headers,
-      body: settings.body ? JSON.stringify(settings.body) : undefined,
+      body: settings.body instanceof FormData ? settings.body : settings.body ? JSON.stringify(settings.body) : undefined,
     });
   } catch {
     throw new Error('Could not reach the server. Check your internet connection and try again.');
@@ -285,6 +285,57 @@ export async function openDocument(applicationId, documentType, fileName, downlo
     }
     throw error;
   }
+}
+
+// ---------- Letters / certificates (Offer letter, Completion certificate, Experience letter) ----------
+
+// HR + superadmin: upload a PDF (replaces the old one). Returns { application, message }.
+export async function uploadCertificate(applicationId, certificateType, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const result = await request(
+    '/api/admin/applications/' + encodeURIComponent(applicationId) + '/certificates/' + certificateType,
+    { method: 'POST', body: formData }
+  );
+  return { application: result.data.application, message: result.message };
+}
+
+// View in a new tab, or download. Works the same way as openDocument above.
+export async function openCertificate(applicationId, certificateType, fileName, download) {
+  let newTab = null;
+  if (!download) {
+    newTab = window.open('', '_blank');
+  }
+  try {
+    const path =
+      '/api/admin/applications/' + encodeURIComponent(applicationId) + '/certificates/' + certificateType +
+      (download ? '?download=true' : '');
+    const blob = await request(path, { returnBlob: true });
+    const url = URL.createObjectURL(blob);
+    if (newTab) {
+      newTab.location.href = url;
+      setTimeout(function () {
+        URL.revokeObjectURL(url);
+      }, 60000);
+    } else {
+      URL.revokeObjectURL(url);
+      saveBlob(blob, fileName);
+    }
+  } catch (error) {
+    if (newTab) {
+      newTab.close();
+    }
+    throw error;
+  }
+}
+
+// Superadmin only: remove an uploaded letter. Returns { application, message }.
+export async function deleteCertificate(applicationId, certificateType) {
+  const result = await request(
+    '/api/admin/applications/' + encodeURIComponent(applicationId) + '/certificates/' + certificateType,
+    { method: 'DELETE' }
+  );
+  return { application: result.data.application, message: result.message };
 }
 
 // ---------- Superadmin: applications ----------

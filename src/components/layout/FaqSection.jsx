@@ -19,7 +19,7 @@ const QUESTIONS = [
   },
   {
     question: 'Which letters will I get?',
-    answer: 'You select the ones you need in the form: offer letter, completion certificate, experience letter and progress reports.',
+    answer: 'You select the ones you need in the form: offer letter, completion certificate and experience letter.',
   },
   {
     question: 'What happens after I submit?',

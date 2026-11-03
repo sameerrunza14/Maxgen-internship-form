@@ -60,7 +60,7 @@ frontend/
 | --- | --- | --- |
 | `demoMode.js` | `src/config/` | `VITE_DEMO_MODE=true` → the form shows a "Demo preview" bar and does not really send anything (used before the backend was live). |
 | `formConfig.js` | `src/config/` | Gets the form settings from the server (`/api/applications/config`): open / closed, technologies list, max technologies, passout years. If the server cannot be reached, the built-in values are used. |
-| `formOptions.js` | `src/constants/` | Every option on the form: genders, qualifications, technologies (with descriptions), durations, letters, locations, internship types (Summer / Winter / Regular with months), modes, reference sources, documents and size limits, declaration text, step names. **Keep it the same as `backend/src/constants/applicationOptions.js`.** |
+| `formOptions.js` | `src/constants/` | Every option on the form: genders, qualifications, technologies (with descriptions), durations, letters, locations, internship types (Summer / Winter / Regular with months), modes, reference sources (Progress Report letter is turned off: commented out), documents and size limits, declaration text, step names. **Keep it the same as `backend/src/constants/applicationOptions.js`.** |
 | `applicationApi.js` | `src/services/` | Builds the form data (fields + files) and sends it to `POST /api/applications`. Shows the server's error messages. |
 | `validation.js` | `src/utils/` | Checks every field in the browser before going to the next step (same rules as the backend). Lists which fields belong to which step. |
 | `compressImage.js` | `src/utils/` | Makes a photo smaller in the browser when it is over the size limit, so students can upload phone photos. |
@@ -93,7 +93,7 @@ frontend/
 
 | File | Where it is | What it does |
 | --- | --- | --- |
-| `adminApi.js` | `src/admin/` | **Every call from the admin panel to the backend**: sign in, applications, stats, Excel, ZIP, documents, notes, status, visited, edit, trash, users, settings, reports, activity. Keeps the sign-in token in the browser. If the sign-in has expired, sends you to the login page. |
+| `adminApi.js` | `src/admin/` | **Every call from the admin panel to the backend**: sign in, applications, stats, Excel, ZIP, documents, notes, status, visited, edit, letters / certificates, trash, users, settings, reports, activity. Keeps the sign-in token in the browser. If the sign-in has expired, sends you to the login page. |
 | `AdminAuth.jsx` | `src/admin/` | Checks the sign-in when an admin page opens. Shares the signed-in person and `isSuperadmin` with every admin page. |
 | `dateRanges.js` | `src/admin/` | Date filter: Today, Yesterday, Last 7 days, This month, Last month, Custom. |
 | `formatters.js` | `src/admin/` | Shows dates ("2 Nov 2026, 4:48 pm"), phones ("98765 43210") and file sizes nicely. |
@@ -106,6 +106,7 @@ frontend/
 | `AdminUi.jsx` | `src/admin/components/` | Shared pieces: page title, coloured message box, card, "Are you sure?" dialog (can ask to type DELETE), button styles, the "only superadmin" guard, error handler (expired sign-in → login page). |
 | `DateFilter.jsx` | `src/admin/components/` | Date dropdown + From / To boxes (Reports and Activity pages). |
 | `StatusBadge.jsx` | `src/admin/components/` | Pending / Accepted / Rejected badge. |
+| `CertificatesSection.jsx` | `src/admin/components/` | "Letters & certificates" box on the application page: Offer / Joining letter, Completion certificate, Experience letter. Tick when the PDF is uploaded (who + when), "N of 3 given", Upload PDF / Replace, View, Download. Superadmin: Remove. |
 | `Tags.jsx` | `src/admin/components/` | "✓ Visited", "✓ Joined" and "Returning · 2nd time" tags, and the Progress steps in the list (Visited → Joined: coloured = done, grey = not yet). |
 | `AuthLayout.jsx` | `src/admin/components/` | The centered layout of login / forgot / reset password pages. |
 | `PasswordInput.jsx` | `src/admin/components/` | Password box with show / hide. |
@@ -119,7 +120,7 @@ frontend/
 | `ResetPasswordPage.jsx` | `/admin/reset-password` | everyone | Choose a new password from the email link. Shows "Welcome! Set your password" for a new user's link. |
 | `ChangePasswordPage.jsx` | `/admin/password` | signed in | Change your own password. |
 | `ApplicationsPage.jsx` | `/admin` | HR + superadmin | The list: numbers at the top ("new today", "visited today", "joined today"), status cards, search, filters (technology, location, mode, type, visited, joined, applicant, applied date), table on laptop / cards on phone, Status column + Progress column (Visited → Joined), Returning tag, Excel download. Superadmin: ZIP backup button. |
-| `ApplicationDetailPage.jsx` | `/admin/applications/:id` | HR + superadmin | One application: details, call / WhatsApp / email buttons, accept / reject (+ email tick), "Student visited the office" and "Student joined the internship" ticks, returning-applicant history, HR notes (pencil = edit: HR own notes, superadmin any), documents (view / download). Edit details (HR + superadmin). Restore when in the trash (HR + superadmin). Superadmin: Move to trash, delete note. |
+| `ApplicationDetailPage.jsx` | `/admin/applications/:id` | HR + superadmin | One application: details, call / WhatsApp / email buttons, accept / reject (+ email tick), "Student visited the office" and "Student joined the internship" ticks, returning-applicant history, HR notes (pencil = edit: HR own notes, superadmin any), letters & certificates (upload PDF, view, download), documents (view / download). Edit details (HR + superadmin). Restore when in the trash (HR + superadmin). Superadmin: Move to trash, delete note. |
 | `EditApplicationPage.jsx` | `/admin/applications/:id/edit` | HR + superadmin | Correct the student's details. |
 | `ReportsPage.jsx` | `/admin/reports` | superadmin | Totals, acceptance rate, time to decide, visited, returning, and bars by internship type, technology, month, source, duration, location, mode, qualification. |
 | `UsersPage.jsx` | `/admin/users` | superadmin | Add users, change role, turn off / on, send set-password link (with Copy button). |

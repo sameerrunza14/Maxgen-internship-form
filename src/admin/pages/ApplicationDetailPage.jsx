@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import StatusBadge from '../components/StatusBadge';
 import { ReturningTag, VisitedTag, JoinedTag, ordinal } from '../components/Tags';
+import CertificatesSection from '../components/CertificatesSection';
 import { ConfirmDialog, secondaryButton } from '../components/AdminUi';
 import { useAdmin } from '../AdminAuth';
 import {
@@ -775,6 +776,8 @@ function ApplicationDetailPage() {
               </ol>
             )}
           </Section>
+
+          <CertificatesSection application={app} isSuperadmin={isSuperadmin} onUpdated={setApplication} />
 
           <Section title="Documents">
             <ul className="space-y-3">

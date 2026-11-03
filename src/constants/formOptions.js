@@ -57,7 +57,8 @@ export const LETTER_TYPES = [
   { value: 'Offer Letter', label: 'Offer Letter', description: 'Issued when you join' },
   { value: 'Completion Certificate', label: 'Completion Certificate', description: 'After you finish the internship' },
   { value: 'Experience Letter', label: 'Experience Letter', description: 'Describes your work and role' },
-  { value: 'Progress Report', label: 'Progress Reports', description: 'Periodic performance reports' },
+  // Turned off for now (also in backend/src/constants/applicationOptions.js). Remove the // to bring it back.
+  // { value: 'Progress Report', label: 'Progress Reports', description: 'Periodic performance reports' },
 ];
 
 export const LOCATIONS = [

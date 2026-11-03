@@ -86,7 +86,11 @@ Open page
 4. **Returning applicant** box (yellow) → all applications of this person, newest first; click one to open it.
 5. **Notes** → `adminApi.addNote()`. Pencil → edit box → `adminApi.editNote()` (HR: own notes only; superadmin: any) → "(edited)".
    Superadmin can delete with ✕ → `adminApi.deleteNote()`.
-6. **Documents** → `adminApi.openDocument()` gets the file with the sign-in token, then opens it in a new tab or downloads it.
+6. **Letters & certificates** (`components/CertificatesSection.jsx`):
+   "Upload PDF" → file picker (PDF, max 2 MB, checked in the browser and on the server) → `adminApi.uploadCertificate()` →
+   green tick, "Given · date by name", "N of 3 given". View / Download → `adminApi.openCertificate()`.
+   Replace = upload again. Superadmin: Remove → confirm → `adminApi.deleteCertificate()`.
+   **Documents** → `adminApi.openDocument()` gets the file with the sign-in token, then opens it in a new tab or downloads it.
 7. **Edit details** (HR + superadmin) → `EditApplicationPage.jsx` → `adminApi.editApplication()` → back with "Application details saved."
 8. **Move to trash** (superadmin) → confirm → `adminApi.moveToTrash()` → back to the list.
 9. **In trash** → yellow-red bar with Restore (HR + superadmin) → `adminApi.restoreApplication()`.

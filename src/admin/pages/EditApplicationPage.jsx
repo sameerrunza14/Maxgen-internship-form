@@ -15,7 +15,7 @@ import {
   REFERENCE_DETAIL_LABELS,
 } from '../../constants/formOptions';
 
-// Superadmin only: correct a mistake in a saved application (wrong email, phone, name …).
+// HR and superadmin: correct a mistake in a saved application (wrong email, phone, name …).
 // Documents cannot be changed here.
 
 // "Ref. from Friends - Rahul" -> { source: 'Ref. from Friends', detail: 'Rahul' }
@@ -30,6 +30,20 @@ function splitReference(reference) {
     }
   }
   return { source: '', detail: reference };
+}
+
+// The letters on the form, plus letters an old application still has
+// (for example "Progress Report", which is turned off on the form now)
+function letterOptions(application) {
+  const options = LETTER_TYPES.map(optionValue);
+  if (application && application.letters) {
+    for (let i = 0; i < application.letters.length; i++) {
+      if (!options.includes(application.letters[i])) {
+        options.push(application.letters[i]);
+      }
+    }
+  }
+  return options;
 }
 
 function optionValue(option) {
@@ -310,7 +324,7 @@ function EditApplicationPage() {
               />
               <SelectField label="Reference" value={values.referenceSource} options={REFERENCE_SOURCES} error={errors.referenceSource} onChange={function (v) { update('referenceSource', v); }} />
               {detailConfig && text('referenceDetail', detailConfig.label, { maxLength: 60 })}
-              <CheckList label="Letters required" options={LETTER_TYPES.map(optionValue)} values={values.letters} error={errors.letters} onChange={function (v) { update('letters', v); }} />
+              <CheckList label="Letters required" options={letterOptions(application)} values={values.letters} error={errors.letters} onChange={function (v) { update('letters', v); }} />
             </div>
           </Card>
 
