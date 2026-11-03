@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { ConfirmDialog, useErrorHandler } from './AdminUi';
-import { uploadCertificate, openCertificate, deleteCertificate } from '../adminApi';
+import { uploadCertificate, openCertificate, deleteCertificate, emailCertificate, sendCertificateOnWhatsapp } from '../adminApi';
 import { formatDateTime, formatFileSize } from '../formatters';
 
 // The 3 letters HR gives to the student. Keep the keys the same as
@@ -46,6 +46,8 @@ function CertificatesSection({ application, isSuperadmin, onUpdated }) {
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   const [removing, setRemoving] = useState(null);
+  // The letter waiting for "Send email?" confirmation
+  const [emailing, setEmailing] = useState(null);
 
   const certificates = application.certificates || {};
   const canChange = !application.deletedAt;
@@ -127,6 +129,43 @@ function CertificatesSection({ application, isSuperadmin, onUpdated }) {
     }
   }
 
+  async function handleEmail() {
+    const item = emailing;
+    setBusy(item.type + '-email');
+    setMessage('');
+    setError(item.type, '');
+    try {
+      const result = await emailCertificate(application.id, item.type);
+      onUpdated(result.application);
+      setMessage(result.message);
+      setEmailing(null);
+    } catch (error) {
+      setEmailing(null);
+      handleError(error, function (text) {
+        setError(item.type, text);
+      });
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function handleWhatsapp(item) {
+    setBusy(item.type + '-whatsapp');
+    setMessage('');
+    setError(item.type, '');
+    try {
+      const result = await sendCertificateOnWhatsapp(application.id, item.type);
+      onUpdated(result.application);
+      setMessage('WhatsApp opened with the message and download link. Press Send in WhatsApp.');
+    } catch (error) {
+      handleError(error, function (text) {
+        setError(item.type, text);
+      });
+    } finally {
+      setBusy('');
+    }
+  }
+
   async function handleRemove() {
     const item = removing;
     setBusy(item.type + '-remove');
@@ -197,6 +236,18 @@ function CertificatesSection({ application, isSuperadmin, onUpdated }) {
                         <span className="block truncate" title={saved.originalName}>
                           {saved.originalName} · {formatFileSize(saved.size)}
                         </span>
+                        {saved.emailedAt && (
+                          <span className="mt-0.5 block font-medium text-sky-700">
+                            ✉ Emailed · {formatDateTime(saved.emailedAt)}
+                            {saved.emailedByName ? ' by ' + saved.emailedByName : ''}
+                          </span>
+                        )}
+                        {saved.whatsappAt && (
+                          <span className="mt-0.5 block font-medium text-emerald-700">
+                            WhatsApp opened · {formatDateTime(saved.whatsappAt)}
+                            {saved.whatsappByName ? ' by ' + saved.whatsappByName : ''}
+                          </span>
+                        )}
                       </p>
                     ) : (
                       <p className="mt-0.5 text-[13px] text-slate-400">Not given yet</p>
@@ -259,6 +310,34 @@ function CertificatesSection({ application, isSuperadmin, onUpdated }) {
                   )}
                 </div>
 
+                {saved && canChange && (
+                  <div className="mt-2 flex flex-wrap gap-2 border-t border-emerald-100 pt-2 sm:pl-9">
+                    <span className="self-center text-xs font-medium text-slate-500">Send to student:</span>
+                    <button
+                      type="button"
+                      disabled={busy !== ''}
+                      onClick={function () {
+                        handleWhatsapp(item);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#1fa855] px-3 py-1.5 text-[13px] font-semibold text-white hover:bg-[#178a45] disabled:opacity-60"
+                    >
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 00-8.6 15.1L2 22l5-1.3A10 10 0 1012 2zm0 18.2a8.2 8.2 0 01-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1112 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 01-3.3-2.9c-.3-.4.3-.4.7-1.3a.4.4 0 000-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 00-.7.3 3 3 0 00-.9 2.2 5.2 5.2 0 001.1 2.8 11.9 11.9 0 004.6 4c1.7.7 2.4.8 3.2.7a2.8 2.8 0 001.8-1.3 2.3 2.3 0 00.2-1.3c-.1-.1-.3-.2-.5-.3z" /></svg>
+                      {busy === item.type + '-whatsapp' ? 'Opening…' : 'WhatsApp'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy !== ''}
+                      onClick={function () {
+                        setEmailing(item);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3 4a2 2 0 00-2 2v.4l9 4.8 9-4.8V6a2 2 0 00-2-2H3z" /><path d="M19 8.6l-9 4.8-9-4.8V14a2 2 0 002 2h14a2 2 0 002-2V8.6z" /></svg>
+                      {busy === item.type + '-email' ? 'Sending…' : 'Email'}
+                    </button>
+                  </div>
+                )}
+
                 {errors[item.type] && (
                   <p role="alert" className="mt-2 text-[13px] font-medium text-accent-600 sm:pl-9">
                     {errors[item.type]}
@@ -268,8 +347,24 @@ function CertificatesSection({ application, isSuperadmin, onUpdated }) {
             );
           })}
         </ul>
-        <p className="mt-3 text-xs text-slate-400">PDF only, up to {MAX_SIZE_MB} MB. Every upload is saved in the activity log.</p>
+        <p className="mt-3 text-xs text-slate-400">
+          PDF only, up to {MAX_SIZE_MB} MB. WhatsApp sends a download link (WhatsApp links cannot carry a file); Email attaches the PDF.
+          Every upload and send is saved in the activity log.
+        </p>
       </div>
+
+      {emailing && (
+        <ConfirmDialog
+          title={'Email the ' + emailing.label + '?'}
+          message={'The PDF will be sent as an attachment to ' + application.email + '. An email cannot be taken back.'}
+          confirmLabel="Send email"
+          busy={busy === emailing.type + '-email'}
+          onConfirm={handleEmail}
+          onCancel={function () {
+            setEmailing(null);
+          }}
+        />
+      )}
 
       {removing && (
         <ConfirmDialog

@@ -329,6 +329,39 @@ export async function openCertificate(applicationId, certificateType, fileName, 
   }
 }
 
+// HR + superadmin: email the PDF to the student (as an attachment). Returns { application, message }.
+export async function emailCertificate(applicationId, certificateType) {
+  const result = await request(
+    '/api/admin/applications/' + encodeURIComponent(applicationId) + '/certificates/' + certificateType + '/email',
+    { method: 'POST' }
+  );
+  return { application: result.data.application, message: result.message };
+}
+
+// HR + superadmin: opens WhatsApp with a ready message (with a download link) to the student's number.
+// HR then presses Send in WhatsApp. Returns { application }.
+export async function sendCertificateOnWhatsapp(applicationId, certificateType) {
+  // Open the tab inside the click, otherwise the browser may block it as a pop-up
+  const newTab = window.open('', '_blank');
+  try {
+    const result = await request(
+      '/api/admin/applications/' + encodeURIComponent(applicationId) + '/certificates/' + certificateType + '/whatsapp',
+      { method: 'POST' }
+    );
+    if (newTab) {
+      newTab.location.href = result.data.whatsappUrl;
+    } else {
+      window.location.href = result.data.whatsappUrl;
+    }
+    return { application: result.data.application };
+  } catch (error) {
+    if (newTab) {
+      newTab.close();
+    }
+    throw error;
+  }
+}
+
 // Superadmin only: remove an uploaded letter. Returns { application, message }.
 export async function deleteCertificate(applicationId, certificateType) {
   const result = await request(

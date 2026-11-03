@@ -90,6 +90,8 @@ Open page
    "Upload PDF" → file picker (PDF, max 2 MB, checked in the browser and on the server) → `adminApi.uploadCertificate()` →
    green tick, "Given · date by name", "N of 3 given". View / Download → `adminApi.openCertificate()`.
    Replace = upload again. Superadmin: Remove → confirm → `adminApi.deleteCertificate()`.
+   Send to student: **WhatsApp** → `adminApi.sendCertificateOnWhatsapp()` opens a new tab with `wa.me` (message + download link), HR presses Send.
+   **Email** → "Email the …?" box → `adminApi.emailCertificate()` → "Emailed · date by name".
    **Documents** → `adminApi.openDocument()` gets the file with the sign-in token, then opens it in a new tab or downloads it.
 7. **Edit details** (HR + superadmin) → `EditApplicationPage.jsx` → `adminApi.editApplication()` → back with "Application details saved."
 8. **Move to trash** (superadmin) → confirm → `adminApi.moveToTrash()` → back to the list.

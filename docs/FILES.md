@@ -106,7 +106,7 @@ frontend/
 | `AdminUi.jsx` | `src/admin/components/` | Shared pieces: page title, coloured message box, card, "Are you sure?" dialog (can ask to type DELETE), button styles, the "only superadmin" guard, error handler (expired sign-in → login page). |
 | `DateFilter.jsx` | `src/admin/components/` | Date dropdown + From / To boxes (Reports and Activity pages). |
 | `StatusBadge.jsx` | `src/admin/components/` | Pending / Accepted / Rejected badge. |
-| `CertificatesSection.jsx` | `src/admin/components/` | "Letters & certificates" box on the application page: Offer / Joining letter, Completion certificate, Experience letter. Tick when the PDF is uploaded (who + when), "N of 3 given", Upload PDF / Replace, View, Download. Superadmin: Remove. |
+| `CertificatesSection.jsx` | `src/admin/components/` | "Letters & certificates" box on the application page: Offer / Joining letter, Completion certificate, Experience letter. Tick when the PDF is uploaded (who + when), "N of 3 given", Upload PDF / Replace, View, Download, Send to student: WhatsApp (opens WhatsApp with a message and download link) and Email (PDF attached, after a confirm box), with "Emailed · date by name" / "WhatsApp opened · date by name". Superadmin: Remove. |
 | `Tags.jsx` | `src/admin/components/` | "✓ Visited", "✓ Joined" and "Returning · 2nd time" tags, and the Progress steps in the list (Visited → Joined: coloured = done, grey = not yet). |
 | `AuthLayout.jsx` | `src/admin/components/` | The centered layout of login / forgot / reset password pages. |
 | `PasswordInput.jsx` | `src/admin/components/` | Password box with show / hide. |
