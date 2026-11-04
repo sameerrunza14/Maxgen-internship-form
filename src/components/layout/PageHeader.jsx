@@ -41,21 +41,23 @@ export function TopBar() {
 
 /**
  * The 14 technologies written large and slanted behind the hero, like the strokes of the Maxgen "M".
- * The ones the student picks in the form light up in red.
+ * Only decoration: the chosen technologies are shown clearly by ChosenTechnologies below.
  */
 function TechnologyWall({ selectedTechnologies }) {
+  const technologies = getFormConfig().technologies;
   return (
     <div
       className="pointer-events-none absolute inset-y-0 right-0 w-full overflow-hidden opacity-60 [mask-image:linear-gradient(to_right,transparent_0%,black_60%)] lg:w-[46%] lg:opacity-100 lg:[mask-image:linear-gradient(to_right,transparent_0%,black_22%)]"
       aria-hidden="true"
     >
       <ul className="absolute -right-24 -top-10 flex w-[680px] -rotate-[14deg] flex-wrap content-start gap-x-6 gap-y-1 sm:-right-10 lg:-right-16 lg:top-4">
-        {getFormConfig().technologies.map(function (technology, index) {
+        {technologies.map(function (technology, index) {
           const isSelected = selectedTechnologies.includes(technology.value);
           let className = 'whitespace-nowrap text-[40px] font-extrabold leading-[1.15] tracking-tight transition-colors duration-500 ';
 
           if (isSelected) {
-            className = className + 'text-accent-500 opacity-100';
+            // Chosen ones are shown big in red by ChosenTechnologies; here they only get a little brighter
+            className = className + 'text-white/[0.16]';
           } else if (index % 3 === 1) {
             // Every third name is drawn as an outline, the rest as faint solid text
             className = className + 'text-transparent opacity-60 [-webkit-text-stroke:1px_rgba(255,255,255,0.35)]';
@@ -71,6 +73,61 @@ function TechnologyWall({ selectedTechnologies }) {
         })}
       </ul>
     </div>
+  );
+}
+
+// The technologies the student picked, always in a visible place:
+// laptop = big red slanted names on the right of the hero, phone = red chips under the text.
+function ChosenTechnologies({ selectedTechnologies }) {
+  const all = getFormConfig().technologies;
+  const chosen = [];
+  for (let i = 0; i < selectedTechnologies.length; i++) {
+    let label = selectedTechnologies[i];
+    for (let j = 0; j < all.length; j++) {
+      if (all[j].value === selectedTechnologies[i]) {
+        label = all[j].label;
+      }
+    }
+    chosen.push(label);
+  }
+  if (chosen.length === 0) {
+    return null;
+  }
+  return (
+    <>
+      {/* Big screens */}
+      <div
+        className="pointer-events-none absolute right-6 top-6 hidden -rotate-[8deg] flex-col items-end gap-1 xl:flex"
+        aria-hidden="true"
+      >
+        <span className="mb-1 text-xs font-bold uppercase tracking-[0.18em] text-white/50">Your choice</span>
+        {chosen.map(function (label) {
+          return (
+            <span
+              key={label}
+              className="whitespace-nowrap text-[34px] font-extrabold leading-[1.1] tracking-tight text-accent-500 [text-shadow:0_2px_18px_rgba(0,0,0,0.3)]"
+            >
+              {label}
+            </span>
+          );
+        })}
+      </div>
+
+      {/* Phone, tablet and small laptop */}
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 xl:hidden">
+        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/60">Your choice</span>
+        {chosen.map(function (label) {
+          return (
+            <span
+              key={label}
+              className="rounded-full bg-accent-500 px-2.5 py-0.5 text-xs font-semibold text-white shadow-sm"
+            >
+              {label}
+            </span>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -93,6 +150,7 @@ export function Hero({ selectedTechnologies }) {
           14 technologies · Online, offline or hybrid · Ahmedabad, Pune &amp; Mumbai.
           <span className="hidden sm:inline"> Apply below in about 5 minutes.</span>
         </p>
+        <ChosenTechnologies selectedTechnologies={selectedTechnologies} />
       </div>
     </div>
   );

@@ -46,8 +46,6 @@ function CertificatesSection({ application, isSuperadmin, onUpdated }) {
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   const [removing, setRemoving] = useState(null);
-  // The letter waiting for "Send email?" confirmation
-  const [emailing, setEmailing] = useState(null);
 
   const certificates = application.certificates || {};
   const canChange = !application.deletedAt;
@@ -129,18 +127,15 @@ function CertificatesSection({ application, isSuperadmin, onUpdated }) {
     }
   }
 
-  async function handleEmail() {
-    const item = emailing;
+  async function handleEmail(item) {
     setBusy(item.type + '-email');
     setMessage('');
     setError(item.type, '');
     try {
       const result = await emailCertificate(application.id, item.type);
       onUpdated(result.application);
-      setMessage(result.message);
-      setEmailing(null);
+      setMessage('Gmail opened with the email and download link. Check it and press Send in Gmail.');
     } catch (error) {
-      setEmailing(null);
       handleError(error, function (text) {
         setError(item.type, text);
       });
@@ -238,7 +233,7 @@ function CertificatesSection({ application, isSuperadmin, onUpdated }) {
                         </span>
                         {saved.emailedAt && (
                           <span className="mt-0.5 block font-medium text-sky-700">
-                            ✉ Emailed · {formatDateTime(saved.emailedAt)}
+                            ✉ Gmail opened · {formatDateTime(saved.emailedAt)}
                             {saved.emailedByName ? ' by ' + saved.emailedByName : ''}
                           </span>
                         )}
@@ -328,12 +323,12 @@ function CertificatesSection({ application, isSuperadmin, onUpdated }) {
                       type="button"
                       disabled={busy !== ''}
                       onClick={function () {
-                        setEmailing(item);
+                        handleEmail(item);
                       }}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                     >
                       <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3 4a2 2 0 00-2 2v.4l9 4.8 9-4.8V6a2 2 0 00-2-2H3z" /><path d="M19 8.6l-9 4.8-9-4.8V14a2 2 0 002 2h14a2 2 0 002-2V8.6z" /></svg>
-                      {busy === item.type + '-email' ? 'Sending…' : 'Email'}
+                      {busy === item.type + '-email' ? 'Opening…' : 'Gmail'}
                     </button>
                   </div>
                 )}
@@ -348,23 +343,10 @@ function CertificatesSection({ application, isSuperadmin, onUpdated }) {
           })}
         </ul>
         <p className="mt-3 text-xs text-slate-400">
-          PDF only, up to {MAX_SIZE_MB} MB. WhatsApp sends a download link (WhatsApp links cannot carry a file); Email attaches the PDF.
+          PDF only, up to {MAX_SIZE_MB} MB. WhatsApp and Gmail open with a ready message and a download link (a link cannot attach the file); you press Send.
           Every upload and send is saved in the activity log.
         </p>
       </div>
-
-      {emailing && (
-        <ConfirmDialog
-          title={'Email the ' + emailing.label + '?'}
-          message={'The PDF will be sent as an attachment to ' + application.email + '. An email cannot be taken back.'}
-          confirmLabel="Send email"
-          busy={busy === emailing.type + '-email'}
-          onConfirm={handleEmail}
-          onCancel={function () {
-            setEmailing(null);
-          }}
-        />
-      )}
 
       {removing && (
         <ConfirmDialog

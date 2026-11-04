@@ -329,13 +329,28 @@ export async function openCertificate(applicationId, certificateType, fileName, 
   }
 }
 
-// HR + superadmin: email the PDF to the student (as an attachment). Returns { application, message }.
+// HR + superadmin: opens Gmail's "new email" page in a new tab with To, Subject and the message
+// (with a download link) filled in. HR then presses Send in Gmail. Returns { application }.
 export async function emailCertificate(applicationId, certificateType) {
-  const result = await request(
-    '/api/admin/applications/' + encodeURIComponent(applicationId) + '/certificates/' + certificateType + '/email',
-    { method: 'POST' }
-  );
-  return { application: result.data.application, message: result.message };
+  // Open the tab inside the click, otherwise the browser may block it as a pop-up
+  const newTab = window.open('', '_blank');
+  try {
+    const result = await request(
+      '/api/admin/applications/' + encodeURIComponent(applicationId) + '/certificates/' + certificateType + '/email',
+      { method: 'POST' }
+    );
+    if (newTab) {
+      newTab.location.href = result.data.gmailUrl;
+    } else {
+      window.location.href = result.data.gmailUrl;
+    }
+    return { application: result.data.application };
+  } catch (error) {
+    if (newTab) {
+      newTab.close();
+    }
+    throw error;
+  }
 }
 
 // HR + superadmin: opens WhatsApp with a ready message (with a download link) to the student's number.
