@@ -39,12 +39,16 @@ Open page
    - Typing → the field is checked right away (`utils/validation.js` → `validateField`).
    - "Continue" → every field of the step is checked (`validateStep`). Errors → stay on the step and show red messages.
    - Answers are saved in the browser after every change.
+   - Step 3: choosing technologies shows them at once in the hero under "Your choice" (`PageHeader.jsx`):
+     big red names on large screens, red chips on phone / tablet. "Progress Report" is no longer a letter option.
 3. **Documents** → `FileUpload.jsx` checks type and size. A big photo is made smaller by `utils/compressImage.js`.
 4. **Review** → `ReviewStep.jsx` shows everything; "Edit" jumps back to a step. The declaration tick is required.
 5. **Submit** → all steps are checked again → `services/applicationApi.js` builds the form data and sends `POST /api/applications`.
    - Server says a field is wrong → the form jumps to that step and shows the message.
    - Success → `SuccessScreen.jsx` shows the Application ID; the draft is deleted.
 6. **Demo mode** (`VITE_DEMO_MODE=true`) → nothing is sent; a fake success is shown.
+7. **Below the form** → `FaqSection.jsx`: numbered questions (first one open) and the "Still have a question?" box
+   (Call / WhatsApp for each inquiry number, office address, Google Maps). Numbers and address come from `constants/contact.js`.
 
 ---
 
@@ -66,20 +70,23 @@ Open page
 
 1. The filters live in the page address (e.g. `?status=pending&visited=today`), so Refresh and Back keep them.
 2. On every filter change:
-   - `adminApi.getStats()` → numbers: total, pending, accepted, rejected, new today, visited today.
+   - `adminApi.getStats()` → numbers: total, pending, accepted, rejected, new today, visited today, joined today.
    - `adminApi.listApplications()` → 10 rows per page. Page buttons at the bottom (← Previous · 1 2 3 … · Next →) keep all filters (the page number is in the address too, `?page=2`).
 3. Typing in search waits 0.4 seconds before searching.
 4. Each row shows: Returning tag (applied before), internship type, Status (Pending / Accepted / Rejected) and Progress (Visited → Joined; grey = not yet).
-5. "N visited today" link → sets the filter `visited=today`.
+5. "N visited today" / "N joined today" links → set the filter `visited=today` / `joined=today`.
 6. **Download Excel** → `adminApi.downloadExcel()` with the same filters
-   (with "Visited today" the button says "Download today's visitors" and the file is `Maxgen office visitors <date>.xlsx`).
+   (with "Visited today" the button says "Download today's visitors" and the file is `Maxgen office visitors <date>.xlsx`;
+   with "Joined today" the file is `Maxgen joined today <date>.xlsx`).
 7. **Backup ZIP** (superadmin) → `adminApi.downloadBackup()`.
 
 ---
 
 ## 5. One application — `ApplicationDetailPage.jsx`
 
-1. Open → `adminApi.getApplication(id)` (details + notes + documents + other applications of the same person).
+1. Open → `adminApi.getApplication(id)` (details + notes + documents + letters / certificates + other applications of the same person).
+   Layout: left = the student's information (personal, education, internship, documents in 2 columns, declaration);
+   right = HR's work (HR notes, letters & certificates). On a phone everything is one below the other.
 2. **Accept / Reject** → "Are you sure?" box with the "Email the student" tick → `adminApi.updateStatus()` → shows "Email sent" or a warning.
 3. **Student visited the office** tick → `adminApi.updateVisited()` → shows the time and who ticked it.
    **Student joined the internship** tick → `adminApi.updateJoined()` (same way).
