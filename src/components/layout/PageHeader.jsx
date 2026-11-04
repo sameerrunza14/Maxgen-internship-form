@@ -1,5 +1,6 @@
 import Logo from './Logo';
 import { getFormConfig } from '../../config/formConfig';
+import { COMPANY_NAME, OFFICE_ADDRESS } from '../../constants/contact';
 
 const WEBSITE_URL = 'https://www.maxgentechnologies.com/';
 const CURRENT_YEAR = new Date().getFullYear();
@@ -101,7 +102,10 @@ export function PageFooter() {
   return (
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-6 text-center text-[13px] text-slate-500 sm:flex-row sm:px-6 sm:text-left">
-        <p>© {CURRENT_YEAR} Maxgen Technologies Pvt. Ltd.</p>
+        <p>
+          © {CURRENT_YEAR} {COMPANY_NAME}
+          <span className="mt-0.5 block text-[12px] text-slate-400">{OFFICE_ADDRESS}</span>
+        </p>
         <a href={WEBSITE_URL} className="font-medium text-brand-700 underline-offset-4 hover:underline">
           maxgentechnologies.com
         </a>

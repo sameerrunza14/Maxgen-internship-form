@@ -60,6 +60,7 @@ frontend/
 | --- | --- | --- |
 | `demoMode.js` | `src/config/` | `VITE_DEMO_MODE=true` → the form shows a "Demo preview" bar and does not really send anything (used before the backend was live). |
 | `formConfig.js` | `src/config/` | Gets the form settings from the server (`/api/applications/config`): open / closed, technologies list, max technologies, passout years. If the server cannot be reached, the built-in values are used. |
+| `contact.js` | `src/constants/` | Company name, office address, Google Maps link and the 3 inquiry numbers shown on the form page (FAQ "Still have a question?" box, footer). **Keep the numbers the same as `COMPANY.phones` in `backend/src/utils/mailer.js`.** |
 | `formOptions.js` | `src/constants/` | Every option on the form: genders, qualifications, technologies (with descriptions), durations, letters, locations, internship types (Summer / Winter / Regular with months), modes, reference sources (Progress Report letter is turned off: commented out), documents and size limits, declaration text, step names. **Keep it the same as `backend/src/constants/applicationOptions.js`.** |
 | `applicationApi.js` | `src/services/` | Builds the form data (fields + files) and sends it to `POST /api/applications`. Shows the server's error messages. |
 | `validation.js` | `src/utils/` | Checks every field in the browser before going to the next step (same rules as the backend). Lists which fields belong to which step. |
@@ -74,7 +75,7 @@ frontend/
 | `ApplicationPage.jsx` | `src/components/` | The whole form page. Keeps all answers, the current step, errors and the result. Saves a draft in the browser (so a refresh does not lose answers). Loads the form settings; shows "Applications are closed" when the form is closed. Sends the form and shows the success screen. |
 | `PageHeader.jsx` | `src/components/layout/` | Top bar, the blue hero with the technologies in the background (the chosen ones light up in red), and the footer. |
 | `Stepper.jsx` | `src/components/layout/` | Step list: on the left on laptop, a small bar on phone. |
-| `FaqSection.jsx` | `src/components/layout/` | "Questions before you apply" below the form. |
+| `FaqSection.jsx` | `src/components/layout/` | "Questions before you apply" below the form: numbered questions (first one open), and the "Still have a question?" box with Call / WhatsApp for every inquiry number and the office address. |
 | `SuccessScreen.jsx` | `src/components/layout/` | After submit: Application ID and next steps. |
 | `Logo.jsx` | `src/components/layout/` | The Maxgen logo. |
 | `PersonalStep.jsx` | `src/components/steps/` | Step 1: name, email, phone, parent phone, gender, address. |
