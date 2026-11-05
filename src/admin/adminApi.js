@@ -1,14 +1,26 @@
 import { IS_DEMO_MODE } from '../config/demoMode';
 
 // All calls from the admin panel to the backend.
-// The sign-in token is kept in this browser (localStorage) and sent with every request.
+// The sign-in token is kept in this browser tab (sessionStorage) and sent with every request.
+// sessionStorage is cleared when the browser (or the tab) is closed, so the next visit asks for the password again.
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 const TOKEN_KEY = 'maxgen-admin-token';
 
+// Last time the admin clicked or typed (for the "signed out after 30 minutes of no use" rule)
+const LAST_ACTIVE_KEY = 'maxgen-admin-last-active';
+export const IDLE_MINUTES = 30;
+
+// Older versions kept the token in localStorage (it stayed for days). Remove it once.
+try {
+  window.localStorage.removeItem(TOKEN_KEY);
+} catch {
+  // ignore
+}
+
 export function getToken() {
   try {
-    return window.localStorage.getItem(TOKEN_KEY) || '';
+    return window.sessionStorage.getItem(TOKEN_KEY) || '';
   } catch {
     return '';
   }
@@ -16,7 +28,8 @@ export function getToken() {
 
 export function saveToken(token) {
   try {
-    window.localStorage.setItem(TOKEN_KEY, token);
+    window.sessionStorage.setItem(TOKEN_KEY, token);
+    markActive();
   } catch {
     // Storage blocked (private mode): the admin will need to sign in again after a refresh
   }
@@ -24,9 +37,32 @@ export function saveToken(token) {
 
 export function clearToken() {
   try {
-    window.localStorage.removeItem(TOKEN_KEY);
+    window.sessionStorage.removeItem(TOKEN_KEY);
+    window.sessionStorage.removeItem(LAST_ACTIVE_KEY);
   } catch {
     // ignore
+  }
+}
+
+// Saves "the admin did something now"
+export function markActive() {
+  try {
+    window.sessionStorage.setItem(LAST_ACTIVE_KEY, String(Date.now()));
+  } catch {
+    // ignore
+  }
+}
+
+// true when the admin has not clicked or typed for IDLE_MINUTES
+export function isIdleTooLong() {
+  try {
+    const last = Number(window.sessionStorage.getItem(LAST_ACTIVE_KEY) || 0);
+    if (!last) {
+      return false;
+    }
+    return Date.now() - last > IDLE_MINUTES * 60 * 1000;
+  } catch {
+    return false;
   }
 }
 
@@ -497,6 +533,12 @@ export async function trashActivity(ids) {
 
 export async function restoreActivity(ids) {
   const result = await request('/api/admin/activity/restore', { method: 'POST', body: { ids: ids } });
+  return result.message;
+}
+
+// Records of log changes (locked entries): deleted for ever at once, without the trash
+export async function deleteLogRecords(ids) {
+  const result = await request('/api/admin/activity/delete-records', { method: 'POST', body: { ids: ids } });
   return result.message;
 }
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import DateFilter from '../components/DateFilter';
 import { Alert, ConfirmDialog, PageTitle, dangerButton, secondaryButton, useErrorHandler } from '../components/AdminUi';
-import { getActivity, trashActivity } from '../adminApi';
+import { getActivity, trashActivity, deleteLogRecords } from '../adminApi';
 import { getDateRange } from '../dateRanges';
 import { formatDateTime } from '../formatters';
 
@@ -34,7 +34,8 @@ function ActivityPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [selected, setSelected] = useState([]); // ids of ticked entries
-  const [isConfirming, setIsConfirming] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false); // "Move to trash?" box
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false); // "Delete log records for ever?" box
   const [isRemoving, setIsRemoving] = useState(false);
   const [notice, setNotice] = useState('');
   const [reloadCount, setReloadCount] = useState(0);
@@ -79,11 +80,23 @@ function ActivityPage() {
   const items = data ? data.items : [];
   const pagination = data ? data.pagination : null;
 
-  // Entries that can be ticked (records of log changes are always kept)
+  // Every entry can be ticked. Normal entries go to the trash;
+  // records of log changes (lock icon) do not go to the trash, they are deleted for ever.
   const selectableIds = [];
+  const lockedIds = [];
   for (let i = 0; i < items.length; i++) {
-    if (!items[i].isProtected) {
-      selectableIds.push(items[i].id);
+    selectableIds.push(items[i].id);
+    if (items[i].isProtected) {
+      lockedIds.push(items[i].id);
+    }
+  }
+  const selectedNormal = [];
+  const selectedLocked = [];
+  for (let i = 0; i < selected.length; i++) {
+    if (lockedIds.includes(selected[i])) {
+      selectedLocked.push(selected[i]);
+    } else {
+      selectedNormal.push(selected[i]);
     }
   }
   const allSelected = selectableIds.length > 0 && selected.length === selectableIds.length;
@@ -108,7 +121,7 @@ function ActivityPage() {
     setIsRemoving(true);
     setError('');
     try {
-      const message = await trashActivity(selected);
+      const message = await trashActivity(selectedNormal);
       setNotice(message);
       setIsConfirming(false);
       setReloadCount(reloadCount + 1);
@@ -120,9 +133,28 @@ function ActivityPage() {
     }
   }
 
+  async function handleDeleteLocked() {
+    setIsRemoving(true);
+    setError('');
+    try {
+      const message = await deleteLogRecords(selectedLocked);
+      setNotice(message);
+      setIsConfirmingDelete(false);
+      setReloadCount(reloadCount + 1);
+    } catch (removeError) {
+      setIsConfirmingDelete(false);
+      handleError(removeError, setError);
+    } finally {
+      setIsRemoving(false);
+    }
+  }
+
   return (
     <AdminLayout>
-      <PageTitle title="Activity log" subtitle="Who did what in the admin panel. Removed entries go to the Trash for 30 days, and every removal is recorded here." />
+      <PageTitle
+        title="Activity log"
+        subtitle="Who did what in the admin panel. Removed entries go to the Trash for 30 days. Entries with a lock record changes to this log: they skip the trash and are deleted for ever."
+      />
       <Alert type="success" className="mt-5">{notice}</Alert>
 
       <div className="mt-5 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-3">
@@ -184,18 +216,32 @@ function ActivityPage() {
               )}
               <span>{pagination.total === 0 ? 'Nothing found' : pagination.total + ' entries'}</span>
             </div>
-            {selected.length > 0 && (
-              <button
-                type="button"
-                onClick={function () {
-                  setNotice('');
-                  setIsConfirming(true);
-                }}
-                className={dangerButton + ' !py-2'}
-              >
-                Move {selected.length} to trash
-              </button>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {selectedNormal.length > 0 && (
+                <button
+                  type="button"
+                  onClick={function () {
+                    setNotice('');
+                    setIsConfirming(true);
+                  }}
+                  className={dangerButton + ' !py-2'}
+                >
+                  Move {selectedNormal.length} to trash
+                </button>
+              )}
+              {selectedLocked.length > 0 && (
+                <button
+                  type="button"
+                  onClick={function () {
+                    setNotice('');
+                    setIsConfirmingDelete(true);
+                  }}
+                  className={dangerButton + ' !py-2'}
+                >
+                  Delete {selectedLocked.length} locked for ever
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -204,27 +250,30 @@ function ActivityPage() {
             {items.map(function (item) {
               return (
                 <li key={item.id} className={'flex gap-3 px-4 py-3' + (selected.includes(item.id) ? ' bg-accent-50/60' : '')}>
-                  {item.isProtected ? (
-                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center text-slate-400" title="Records of log changes are always kept">
-                      <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
-                      </svg>
-                    </span>
-                  ) : (
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(item.id)}
-                      onChange={function () {
-                        toggleOne(item.id);
-                      }}
-                      aria-label={'Select entry: ' + item.adminName + ' ' + item.actionLabel}
-                      className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand-700"
-                    />
-                  )}
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(item.id)}
+                    onChange={function () {
+                      toggleOne(item.id);
+                    }}
+                    aria-label={'Select entry: ' + item.adminName + ' ' + item.actionLabel}
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand-700"
+                  />
                   <span className={'mt-1.5 h-2 w-2 shrink-0 rounded-full ' + actionColour(item.action)} aria-hidden="true" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-slate-800">
                       <span className="font-semibold text-slate-900">{item.adminName}</span> · {item.actionLabel}
+                      {item.isProtected && (
+                        <span
+                          className="ml-1.5 inline-flex translate-y-[2px] text-slate-400"
+                          title="Record of a change to this log: skips the trash, can only be deleted for ever"
+                        >
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
+                          </svg>
+                          <span className="sr-only">(log record)</span>
+                        </span>
+                      )}
                       {item.referenceNo && (
                         <>
                           {' · '}
@@ -281,7 +330,7 @@ function ActivityPage() {
 
       {isConfirming && (
         <ConfirmDialog
-          title={'Move ' + selected.length + (selected.length === 1 ? ' entry' : ' entries') + ' to the trash?'}
+          title={'Move ' + selectedNormal.length + (selectedNormal.length === 1 ? ' entry' : ' entries') + ' to the trash?'}
           message="They are hidden from the activity log. You can restore them from Trash → Activity log for 30 days. This removal itself is recorded in the log."
           confirmLabel="Move to trash"
           danger
@@ -289,6 +338,21 @@ function ActivityPage() {
           onConfirm={handleRemove}
           onCancel={function () {
             setIsConfirming(false);
+          }}
+        />
+      )}
+
+      {isConfirmingDelete && (
+        <ConfirmDialog
+          title={'Delete ' + selectedLocked.length + (selectedLocked.length === 1 ? ' locked entry' : ' locked entries') + ' for ever?'}
+          message="These record changes to the activity log. They do not go to the trash and cannot be brought back. No new record is made for this delete."
+          confirmLabel="Delete for ever"
+          danger
+          typeToConfirm="DELETE"
+          busy={isRemoving}
+          onConfirm={handleDeleteLocked}
+          onCancel={function () {
+            setIsConfirmingDelete(false);
           }}
         />
       )}

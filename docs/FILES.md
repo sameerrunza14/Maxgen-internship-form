@@ -94,8 +94,8 @@ frontend/
 
 | File | Where it is | What it does |
 | --- | --- | --- |
-| `adminApi.js` | `src/admin/` | **Every call from the admin panel to the backend**: sign in, applications, stats, Excel, ZIP, documents, notes, status, visited, edit, letters / certificates, trash, users, settings, reports, activity. Keeps the sign-in token in the browser. If the sign-in has expired, sends you to the login page. |
-| `AdminAuth.jsx` | `src/admin/` | Checks the sign-in when an admin page opens. Shares the signed-in person and `isSuperadmin` with every admin page. |
+| `adminApi.js` | `src/admin/` | **Every call from the admin panel to the backend**: sign in, applications, stats, Excel, ZIP, documents, notes, status, visited, edit, letters / certificates, trash, users, settings, reports, activity. Keeps the sign-in token only in this browser tab (sessionStorage: gone when the browser is closed) and the time of the last click (30-minute no-use rule). If the sign-in has expired, sends you to the login page. |
+| `AdminAuth.jsx` | `src/admin/` | Checks the sign-in when an admin page opens. Signs out after 30 minutes of no use (clicks, typing, scrolling) with a message on the login page. Shares the signed-in person and `isSuperadmin` with every admin page. |
 | `dateRanges.js` | `src/admin/` | Date filter: Today, Yesterday, Last 7 days, This month, Last month, Custom. |
 | `formatters.js` | `src/admin/` | Shows dates ("2 Nov 2026, 4:48 pm"), phones ("98765 43210") and file sizes nicely. |
 
@@ -125,6 +125,6 @@ frontend/
 | `EditApplicationPage.jsx` | `/admin/applications/:id/edit` | HR + superadmin | Correct the student's details. |
 | `ReportsPage.jsx` | `/admin/reports` | superadmin | Totals, acceptance rate, time to decide, visited, returning, and bars by internship type, technology, month, source, duration, location, mode, qualification. |
 | `UsersPage.jsx` | `/admin/users` | superadmin | Add users, change role, turn off / on, send set-password link (with Copy button). |
-| `ActivityPage.jsx` | `/admin/activity` | superadmin | Who did what and when, with filters. Tick entries → "Move to trash". Lock icon = record of a log change, cannot be removed. |
+| `ActivityPage.jsx` | `/admin/activity` | superadmin | Who did what and when, with filters. Tick entries → "Move to trash". Lock icon = record of a log change: tick it → "Delete … locked for ever" (type DELETE), it skips the trash. |
 | `TrashPage.jsx` | `/admin/trash` | HR + superadmin | HR: deleted applications, view and Restore only. Superadmin: two tabs. **Applications:** days left, Restore, Delete for ever, Empty trash. **Activity log** (`?tab=activity`): removed log entries, Restore, Delete for ever, Empty log trash. |
 | `SettingsPage.jsx` | `/admin/settings` | superadmin | Form open / closed + message, notification emails, technologies list, technologies per student, repeat-block days, passout years ahead. |

@@ -55,9 +55,11 @@ Open page
 ## 3. Admin sign-in
 
 1. `/admin` → `AdminAuth.jsx` (`RequireAdmin`):
-   - No token in the browser → `LoginPage.jsx`.
+   - No token in this tab (or the browser was closed) → `LoginPage.jsx`.
+   - No click or key press for 30 minutes → signed out → login page with "You were signed out after 30 minutes of no use".
    - Token found → `GET /api/auth/me` checks it → page opens; `isSuperadmin` is known.
-2. `LoginPage.jsx` → `adminApi.login()` → `POST /api/auth/login` → token saved in the browser → back to the page you wanted.
+2. `LoginPage.jsx` → `adminApi.login()` → `POST /api/auth/login` → token saved for this browser tab (sessionStorage) → back to the page you wanted.
+   A refresh keeps you signed in; closing the browser signs you out. The token itself expires after 8 hours at most.
 3. Any admin call later gets "session expired" (401) → token removed → login page (`adminApi.js` + `useErrorHandler` in `AdminUi.jsx`).
 4. Superadmin-only pages also pass `RequireSuperadmin` (in `AdminUi.jsx`). HR sees "Only a superadmin can open this page".
 
@@ -112,7 +114,7 @@ Open page
 | --- | --- |
 | **Reports** (`ReportsPage.jsx`) | Choose dates (`DateFilter.jsx`) → `adminApi.getReports()` → summary cards + coloured bars (green accepted, yellow pending, red rejected). |
 | **Users** (`UsersPage.jsx`) | Add user → `adminApi.createUser()` → the set-password link is shown with a Copy button (also emailed). Role / on-off / new link → confirm dialog → `adminApi.updateUser()` / `sendSetupLink()`. |
-| **Activity log** (`ActivityPage.jsx`) | Filters person / action / dates → `adminApi.getActivity()` → 50 per page. Tick entries (or "Select all on this page") → "Move N to trash" → confirm → `adminApi.trashActivity()`. |
+| **Activity log** (`ActivityPage.jsx`) | Filters person / action / dates → `adminApi.getActivity()` → 50 per page. Tick entries (or "Select all on this page") → "Move N to trash" → confirm → `adminApi.trashActivity()`. Ticked lock entries → "Delete N locked for ever" → type DELETE → `adminApi.deleteLogRecords()`. |
 | **Trash** (`TrashPage.jsx`, HR too) | HR sees only the applications list with Restore. Superadmin: tab **Applications**: `listApplications({ trash: 'true' })` → days left; Restore; Delete for ever / Empty trash need typing DELETE. Tab **Activity log**: `getActivity({ trash: 'true' })` → tick entries → `restoreActivity()` or `deleteActivityForever()` (type DELETE). |
 | **Settings** (`SettingsPage.jsx`) | `adminApi.getSettings()` → edit → Save → `adminApi.saveSettings()`. "Undo changes" puts back the saved values. The form uses the new values on the next page load. |
 
