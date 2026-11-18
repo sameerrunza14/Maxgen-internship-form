@@ -489,10 +489,16 @@ export async function createUser(name, email, role) {
   return { ...result.data, message: result.message };
 }
 
-// changes = { name, role, isActive }
+// changes = { name, email, role, isActive }
 export async function updateUser(id, changes) {
   const result = await request('/api/admin/users/' + encodeURIComponent(id), { method: 'PATCH', body: changes });
   return { user: result.data.user, message: result.message };
+}
+
+// Removes the account for good. Returns { removedSelf, message }
+export async function deleteUser(id) {
+  const result = await request('/api/admin/users/' + encodeURIComponent(id), { method: 'DELETE' });
+  return { ...result.data, message: result.message };
 }
 
 // Returns { setupLink, emailSent, message }

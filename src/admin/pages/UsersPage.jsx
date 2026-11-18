@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { Alert, Card, ConfirmDialog, PageTitle, inputClass, primaryButton, secondaryButton, useErrorHandler } from '../components/AdminUi';
 import { useAdmin } from '../AdminAuth';
-import { listUsers, createUser, updateUser, sendSetupLink } from '../adminApi';
+import { listUsers, createUser, updateUser, deleteUser, sendSetupLink } from '../adminApi';
 import { formatDateTime } from '../formatters';
 
 const ROLE_OPTIONS = [
@@ -45,8 +45,66 @@ function SetupLinkBox({ link, onClose }) {
   );
 }
 
+// Small pop-up to change a user's name and sign-in email
+function EditUserDialog({ user, isMe, busy, errors, onSave, onCancel }) {
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    onSave(name.trim(), email.trim());
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 sm:items-center" role="dialog" aria-modal="true">
+      <form onSubmit={handleSubmit} noValidate className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+        <h2 className="text-lg font-bold text-slate-900">Edit {isMe ? 'your account' : user.name}</h2>
+        <div className="mt-4 space-y-4">
+          <label className="block">
+            <span className="mb-1 block text-[13px] font-semibold text-slate-700">Full name</span>
+            <input
+              type="text"
+              value={name}
+              maxLength={100}
+              onChange={function (event) {
+                setName(event.target.value);
+              }}
+              className={inputClass}
+            />
+            {errors.name && <span className="mt-1 block text-[13px] font-medium text-accent-600">{errors.name}</span>}
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[13px] font-semibold text-slate-700">Email (used to sign in)</span>
+            <input
+              type="email"
+              value={email}
+              maxLength={190}
+              onChange={function (event) {
+                setEmail(event.target.value);
+              }}
+              className={inputClass}
+            />
+            {errors.email && <span className="mt-1 block text-[13px] font-medium text-accent-600">{errors.email}</span>}
+          </label>
+          <p className="text-xs leading-relaxed text-slate-500">
+            The password stays the same. From now on {isMe ? 'you' : 'they'} sign in with the new email.
+          </p>
+        </div>
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onCancel} disabled={busy} className={secondaryButton}>
+            Cancel
+          </button>
+          <button type="submit" disabled={busy} className={primaryButton}>
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function UsersPage() {
-  const { admin } = useAdmin();
+  const { admin, signOut } = useAdmin();
   const handleError = useErrorHandler();
   const [users, setUsers] = useState(null);
   const [pageError, setPageError] = useState('');
@@ -61,6 +119,10 @@ function UsersPage() {
   // "Are you sure?" for role / on-off changes: { user, changes, title, message }
   const [confirm, setConfirm] = useState(null);
   const [busyId, setBusyId] = useState(null);
+
+  // Edit name / email pop-up: { user } or null
+  const [editing, setEditing] = useState(null);
+  const [editErrors, setEditErrors] = useState({});
 
   function loadUsers() {
     listUsers()
@@ -106,11 +168,30 @@ function UsersPage() {
 
   async function saveChange() {
     const { user, changes } = confirm;
+    const isMe = user.id === admin.id;
     setBusyId(user.id);
     setNotice({ type: '', text: '' });
     try {
-      const result = await updateUser(user.id, changes);
-      setNotice({ type: 'success', text: user.name + ': ' + result.message });
+      if (changes.remove) {
+        const result = await deleteUser(user.id);
+        if (result.removedSelf) {
+          signOut();
+          return;
+        }
+        setNotice({ type: 'success', text: result.message });
+      } else {
+        const result = await updateUser(user.id, changes);
+        if (isMe && changes.isActive === false) {
+          signOut();
+          return;
+        }
+        if (isMe && changes.role === 'admin') {
+          // You are no longer a superadmin: this page is not for you any more
+          window.location.assign('/admin');
+          return;
+        }
+        setNotice({ type: 'success', text: user.name + ': ' + result.message });
+      }
       setConfirm(null);
       loadUsers();
     } catch (error) {
@@ -141,6 +222,50 @@ function UsersPage() {
     }
   }
 
+  async function saveEdit(name, email) {
+    const user = editing.user;
+    setBusyId(user.id);
+    setEditErrors({});
+    setNotice({ type: '', text: '' });
+    try {
+      const result = await updateUser(user.id, { name: name, email: email });
+      setEditing(null);
+      if (user.id === admin.id) {
+        // Reload so the top bar shows your new name / email
+        window.location.reload();
+        return;
+      }
+      setNotice({ type: 'success', text: name + ': ' + result.message });
+      loadUsers();
+    } catch (error) {
+      if (error.fieldErrors && Object.keys(error.fieldErrors).length > 0) {
+        setEditErrors(error.fieldErrors);
+      } else {
+        setEditing(null);
+        handleError(error, function (message) {
+          setNotice({ type: 'error', text: message });
+        });
+      }
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function askRemove(user) {
+    const isMe = user.id === admin.id;
+    setConfirm({
+      user: user,
+      changes: { remove: true },
+      title: isMe ? 'Remove your own account?' : 'Remove ' + user.name + '?',
+      message: isMe
+        ? 'Your account is deleted and you are signed out at once. You cannot sign in again unless another superadmin adds you back.'
+        : 'Their account is deleted for good and they cannot sign in. Their notes and activity log entries keep their name. To only block them for a while, use "Turn off" instead.',
+      confirmLabel: 'Yes, remove',
+      danger: true,
+      typeToConfirm: 'REMOVE',
+    });
+  }
+
   function askRoleChange(user) {
     const newRole = user.role === 'superadmin' ? 'admin' : 'superadmin';
     setConfirm({
@@ -150,7 +275,9 @@ function UsersPage() {
       message:
         newRole === 'superadmin'
           ? 'They will be able to add and remove users, change settings and delete applications.'
-          : 'They will only see applications. Users, settings, reports, activity log and trash will be hidden.',
+          : user.id === admin.id
+            ? 'You will only see applications. Users, settings, reports, activity log and trash will be hidden from you.'
+            : 'They will only see applications. Users, settings, reports, activity log and trash will be hidden.',
       confirmLabel: 'Yes, change role',
       danger: false,
     });
@@ -164,7 +291,9 @@ function UsersPage() {
       title: turnOn ? 'Turn on ' + user.name + "'s account?" : 'Turn off ' + user.name + "'s account?",
       message: turnOn
         ? 'They can sign in again with their old password (or use "Send set-password link").'
-        : 'They are signed out at once and cannot sign in. Their notes and history stay. You can turn the account on again later.',
+        : user.id === admin.id
+          ? 'You are signed out at once and cannot sign in until another superadmin turns your account on again.'
+          : 'They are signed out at once and cannot sign in. Their notes and history stay. You can turn the account on again later.',
       confirmLabel: turnOn ? 'Yes, turn on' : 'Yes, turn off',
       danger: !turnOn,
     });
@@ -230,46 +359,67 @@ function UsersPage() {
                           {user.lastLoginAt ? 'Last sign-in ' + formatDateTime(user.lastLoginAt) : 'Never signed in'}
                         </p>
                       </div>
-                      {!isMe && (
-                        <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={busyId !== null}
+                          onClick={function () {
+                            setEditErrors({});
+                            setEditing({ user: user });
+                          }}
+                          className={secondaryButton + ' !px-3 !py-2 text-[13px]'}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyId !== null || isLastSuperadmin}
+                          title={isLastSuperadmin ? 'There must always be at least one superadmin' : ''}
+                          onClick={function () {
+                            askRoleChange(user);
+                          }}
+                          className={secondaryButton + ' !px-3 !py-2 text-[13px]'}
+                        >
+                          {user.role === 'superadmin' ? 'Make Admin (HR)' : 'Make superadmin'}
+                        </button>
+                        {user.isActive && !isMe && (
                           <button
                             type="button"
-                            disabled={busyId !== null || isLastSuperadmin}
-                            title={isLastSuperadmin ? 'There must always be at least one superadmin' : ''}
+                            disabled={busyId !== null}
                             onClick={function () {
-                              askRoleChange(user);
+                              handleNewLink(user);
                             }}
                             className={secondaryButton + ' !px-3 !py-2 text-[13px]'}
                           >
-                            {user.role === 'superadmin' ? 'Make Admin (HR)' : 'Make superadmin'}
+                            {busyId === user.id && !confirm ? 'Sending…' : 'Send set-password link'}
                           </button>
-                          {user.isActive && (
-                            <button
-                              type="button"
-                              disabled={busyId !== null}
-                              onClick={function () {
-                                handleNewLink(user);
-                              }}
-                              className={secondaryButton + ' !px-3 !py-2 text-[13px]'}
-                            >
-                              {busyId === user.id && !confirm ? 'Sending…' : 'Send set-password link'}
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            disabled={busyId !== null || isLastSuperadmin}
-                            onClick={function () {
-                              askActiveChange(user);
-                            }}
-                            className={
-                              (user.isActive ? secondaryButton + ' hover:!border-accent-500 hover:!text-accent-600' : secondaryButton) +
-                              ' !px-3 !py-2 text-[13px]'
-                            }
-                          >
-                            {user.isActive ? 'Turn off' : 'Turn on'}
-                          </button>
-                        </div>
-                      )}
+                        )}
+                        <button
+                          type="button"
+                          disabled={busyId !== null || isLastSuperadmin}
+                          title={isLastSuperadmin ? 'There must always be at least one superadmin' : ''}
+                          onClick={function () {
+                            askActiveChange(user);
+                          }}
+                          className={
+                            (user.isActive ? secondaryButton + ' hover:!border-accent-500 hover:!text-accent-600' : secondaryButton) +
+                            ' !px-3 !py-2 text-[13px]'
+                          }
+                        >
+                          {user.isActive ? 'Turn off' : 'Turn on'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyId !== null || isLastSuperadmin}
+                          title={isLastSuperadmin ? 'There must always be at least one superadmin. Add another superadmin first.' : ''}
+                          onClick={function () {
+                            askRemove(user);
+                          }}
+                          className={secondaryButton + ' !px-3 !py-2 text-[13px] hover:!border-accent-500 hover:!text-accent-600'}
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </li>
                 );
@@ -359,10 +509,23 @@ function UsersPage() {
           message={confirm.message}
           confirmLabel={confirm.confirmLabel}
           danger={confirm.danger}
+          typeToConfirm={confirm.typeToConfirm}
           busy={busyId !== null}
           onConfirm={saveChange}
           onCancel={function () {
             setConfirm(null);
+          }}
+        />
+      )}
+      {editing && (
+        <EditUserDialog
+          user={editing.user}
+          isMe={editing.user.id === admin.id}
+          busy={busyId !== null}
+          errors={editErrors}
+          onSave={saveEdit}
+          onCancel={function () {
+            setEditing(null);
           }}
         />
       )}
