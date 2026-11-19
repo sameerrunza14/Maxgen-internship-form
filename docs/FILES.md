@@ -95,7 +95,7 @@ frontend/
 | File | Where it is | What it does |
 | --- | --- | --- |
 | `adminApi.js` | `src/admin/` | **Every call from the admin panel to the backend**: sign in, applications, stats, Excel, ZIP, documents, notes, status, visited, edit, letters / certificates, trash, users, settings, reports, activity. Keeps the sign-in token only in this browser tab (sessionStorage: gone when the browser is closed) and the time of the last click (30-minute no-use rule). If the sign-in has expired, sends you to the login page. |
-| `AdminAuth.jsx` | `src/admin/` | Checks the sign-in when an admin page opens. Signs out after 30 minutes of no use (clicks, typing, scrolling) with a message on the login page. Shares the signed-in person and `isSuperadmin` with every admin page. |
+| `AdminAuth.jsx` | `src/admin/` | Checks the sign-in when an admin page opens. Signs out after 3 hours of no use (clicks, typing, scrolling) with a message on the login page. Shares the signed-in person and `isSuperadmin` with every admin page. |
 | `dateRanges.js` | `src/admin/` | Date filter: Today, Yesterday, Last 7 days, This month, Last month, Custom. |
 | `formatters.js` | `src/admin/` | Shows dates ("2 Nov 2026, 4:48 pm"), phones ("98765 43210") and file sizes nicely. |
 

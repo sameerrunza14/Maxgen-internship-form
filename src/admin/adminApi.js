@@ -7,9 +7,9 @@ import { IS_DEMO_MODE } from '../config/demoMode';
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 const TOKEN_KEY = 'maxgen-admin-token';
 
-// Last time the admin clicked or typed (for the "signed out after 30 minutes of no use" rule)
+// Last time the admin clicked or typed (for the "signed out after 3 hours of no use" rule)
 const LAST_ACTIVE_KEY = 'maxgen-admin-last-active';
-export const IDLE_MINUTES = 30;
+export const IDLE_MINUTES = 180; // 3 hours
 
 // Older versions kept the token in localStorage (it stayed for days). Remove it once.
 try {

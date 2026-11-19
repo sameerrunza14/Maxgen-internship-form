@@ -104,7 +104,7 @@ export function RequireAdmin({ children }) {
         replace
         state={{
           from: location.pathname + location.search,
-          message: 'You were signed out after ' + IDLE_MINUTES + ' minutes of no use. Please sign in again.',
+          message: 'You were signed out after ' + IDLE_MINUTES / 60 + ' hours of no use. Please sign in again.',
         }}
       />
     );

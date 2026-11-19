@@ -56,7 +56,7 @@ Open page
 
 1. `/admin` → `AdminAuth.jsx` (`RequireAdmin`):
    - No token in this tab (or the browser was closed) → `LoginPage.jsx`.
-   - No click or key press for 30 minutes → signed out → login page with "You were signed out after 30 minutes of no use".
+   - No click or key press for 3 hours → signed out → login page with "You were signed out after 3 hours of no use".
    - Token found → `GET /api/auth/me` checks it → page opens; `isSuperadmin` is known.
 2. `LoginPage.jsx` → `adminApi.login()` → `POST /api/auth/login` → token saved for this browser tab (sessionStorage) → back to the page you wanted.
    A refresh keeps you signed in; closing the browser signs you out. The token itself expires after 8 hours at most.
