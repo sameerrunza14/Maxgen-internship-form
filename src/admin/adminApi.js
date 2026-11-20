@@ -251,15 +251,6 @@ export async function addNote(id, note, photos) {
   return result.data.application;
 }
 
-// Follow-up of a note done (true) or open again (false)
-export async function setFollowUpDone(applicationId, noteId, done) {
-  const result = await request(
-    '/api/admin/applications/' + encodeURIComponent(applicationId) + '/notes/' + encodeURIComponent(noteId) + '/follow-up',
-    { method: 'PATCH', body: { done: done } }
-  );
-  return result.data.application;
-}
-
 // A note photo as a Blob (to show it; the photo needs the sign-in, so <img src> cannot load it directly)
 export async function getNotePhoto(applicationId, photoId) {
   return request(

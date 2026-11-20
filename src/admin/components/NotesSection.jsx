@@ -1,9 +1,8 @@
 import { useRef, useState } from 'react';
 import { ConfirmDialog, useErrorHandler } from './AdminUi';
 import PhotoThumb from './PhotoThumb';
-import { addNote, editNote, deleteNote, setFollowUpDone, getNotePhoto } from '../adminApi';
+import { addNote, editNote, deleteNote, getNotePhoto } from '../adminApi';
 import { formatDateTime } from '../formatters';
-import { toDateText } from '../dateRanges';
 import { compressImage } from '../../utils/compressImage';
 
 // ---------- Settings (change them here) ----------
@@ -13,19 +12,20 @@ const MAX_PHOTOS = 3; // keep the same as MAX_NOTE_PHOTOS in the backend
 const MAX_PHOTO_BYTES = 900 * 1024; // bigger phone photos are made smaller first (backend limit: 1 MB)
 
 // Note types: the coloured tag on each note. Keep the values the same as NOTE_TYPES in the backend.
+// hidden: not offered for new notes any more, only used to show older notes.
 const NOTE_TYPES = [
   { value: 'call', label: 'Call', className: 'bg-sky-50 text-sky-800 ring-sky-200' },
   { value: 'visit', label: 'Visit', className: 'bg-violet-50 text-violet-800 ring-violet-200' },
   { value: 'payment', label: 'Payment', className: 'bg-emerald-50 text-emerald-800 ring-emerald-200' },
-  { value: 'follow_up', label: 'Follow-up', className: 'bg-amber-50 text-amber-800 ring-amber-200' },
+  { value: 'follow_up', label: 'Note', className: 'bg-slate-100 text-slate-700 ring-slate-200', hidden: true },
   { value: 'other', label: 'Note', className: 'bg-slate-100 text-slate-700 ring-slate-200' },
 ];
 
-// One-click notes. followUpDays: also sets a follow-up date that many days from today.
+// One-click notes: fill the text and the type
 const QUICK_NOTES = [
-  { label: 'No answer', text: 'Called – no answer.', type: 'call', followUpDays: 1 },
-  { label: 'Interested, will visit', text: 'Called – interested, will visit the office.', type: 'call', followUpDays: 2 },
-  { label: 'Will confirm later', text: 'Will confirm after discussing with parents.', type: 'follow_up', followUpDays: 2 },
+  { label: 'No answer', text: 'Called – no answer.', type: 'call' },
+  { label: 'Interested, will visit', text: 'Called – interested, will visit the office.', type: 'call' },
+  { label: 'Will confirm later', text: 'Will confirm after discussing with parents.', type: 'call' },
   { label: 'Visited office', text: 'Visited the office for counselling.', type: 'visit' },
   { label: 'Registration done', text: 'Registration done. Fee paid: ₹', type: 'payment' },
   { label: 'Not interested', text: 'Not interested right now.', type: 'other' },
@@ -40,20 +40,30 @@ function findType(value) {
   return NOTE_TYPES[NOTE_TYPES.length - 1];
 }
 
-// '2026-11-20T00:00:00.000Z' or '2026-11-20' -> '2026-11-20'
-function dateOnly(value) {
-  return value ? String(value).slice(0, 10) : '';
+function isPhoto(file) {
+  return file.type === 'image/jpeg' || file.type === 'image/png';
 }
 
-function daysFromToday(days) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return toDateText(date);
+// A pasted / camera photo often has no useful name ("image.png"): give it one
+function namePhoto(file) {
+  if (file.name && file.name !== 'image.png' && file.name !== 'image.jpg') {
+    return file.name;
+  }
+  return 'photo-' + Date.now() + (file.type === 'image/png' ? '.png' : '.jpg');
 }
 
-// '2026-11-20' -> '20 Nov'
-function shortDate(dateText) {
-  return new Date(dateText + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+// Reads the photo now (phones may not let us read it again later) and makes a big photo smaller.
+// Returns a File, or null if it could not be read.
+async function preparePhoto(file) {
+  try {
+    // Too big, or another photo format (e.g. HEIC from a camera): turn it into a smaller JPG
+    if (file.size > MAX_PHOTO_BYTES || !isPhoto(file)) {
+      return await compressImage(file, MAX_PHOTO_BYTES);
+    }
+    return new File([await file.arrayBuffer()], namePhoto(file), { type: file.type });
+  } catch {
+    return null;
+  }
 }
 
 // ---------- Small parts ----------
@@ -72,6 +82,9 @@ function TypePicker({ value, onChange }) {
   return (
     <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Note type">
       {NOTE_TYPES.map(function (option) {
+        if (option.hidden) {
+          return null;
+        }
         const isChosen = value === option.value;
         return (
           <button
@@ -95,37 +108,12 @@ function TypePicker({ value, onChange }) {
   );
 }
 
-// "Follow-up today" / "Follow-up overdue · 18 Nov" / "Follow-up 22 Nov" / "Follow-up done"
-function FollowUpBadge({ note }) {
-  const date = dateOnly(note.followUpDate);
-  if (!date) {
-    return null;
-  }
-  if (note.followUpDoneAt) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200">
-        ✓ Follow-up done
-      </span>
-    );
-  }
-  const today = toDateText(new Date());
-  let text = 'Follow-up ' + shortDate(date);
-  let className = 'bg-brand-50 text-brand-800 ring-brand-100';
-  if (date === today) {
-    text = 'Follow-up today';
-    className = 'bg-amber-100 text-amber-900 ring-amber-300';
-  } else if (date < today) {
-    text = 'Follow-up overdue · ' + shortDate(date);
-    className = 'bg-accent-50 text-accent-600 ring-accent-100';
-  }
-  return <span className={'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ' + className}>{text}</span>;
-}
-
 const textareaClass =
   'block w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900 placeholder:text-slate-400 ' +
   'focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15 sm:text-sm';
-const dateInputClass =
-  'rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15';
+const photoButtonClass =
+  'inline-flex h-14 items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 text-xs font-semibold text-slate-600 ' +
+  'transition hover:border-brand-600 hover:text-brand-700 disabled:opacity-60';
 
 function ErrorText({ children }) {
   if (!children) {
@@ -140,31 +128,32 @@ function ErrorText({ children }) {
 
 /**
  * "HR notes" box on the application page.
- * Each note: a type (Call, Visit, Payment …), the text, an optional follow-up date and up to 3 photos.
+ * Each note: a type (Call, Visit, Payment, Note), the text and up to 3 photos.
+ * Photos can be chosen from the phone / computer, taken with the camera, or pasted (e.g. copied from WhatsApp).
  * HR edits their own notes; the superadmin edits and deletes any note.
  */
 function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
   const handleError = useErrorHandler();
   const photoInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
   const canChange = !application.deletedAt;
 
   // New note form
   const [text, setText] = useState('');
   const [type, setType] = useState('other');
-  const [followUpDate, setFollowUpDate] = useState('');
   const [photos, setPhotos] = useState([]); // [{ file, previewUrl }]
   const [errors, setErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [isPreparingPhotos, setIsPreparingPhotos] = useState(false);
+  const [pasteHint, setPasteHint] = useState('');
 
-  // Editing a note: { id, text, type, followUpDate }
+  // Editing a note: { id, text, type }
   const [editing, setEditing] = useState(null);
   const [editErrors, setEditErrors] = useState({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const [deletingId, setDeletingId] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [busyFollowUpId, setBusyFollowUpId] = useState(null);
   const [listError, setListError] = useState('');
 
   function applyQuickNote(quick) {
@@ -173,55 +162,96 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
       return trimmed ? trimmed + '\n' + quick.text : quick.text;
     });
     setType(quick.type);
-    if (quick.followUpDays) {
-      setFollowUpDate(daysFromToday(quick.followUpDays));
-    }
     setErrors({});
   }
 
-  // ---------- Photos for a new note ----------
+  // ---------- Photos: from files, camera or paste ----------
 
-  async function handlePhotosChosen(event) {
-    const chosen = Array.from(event.target.files || []);
-    event.target.value = '';
+  async function addPhotoFiles(chosen) {
     if (chosen.length === 0) {
       return;
     }
     const room = MAX_PHOTOS - photos.length;
-    if (chosen.length > room) {
+    if (room <= 0) {
       setErrors({ photos: 'You can add up to ' + MAX_PHOTOS + ' photos to one note.' });
-    } else {
-      setErrors({});
+      return;
     }
+    let problem = chosen.length > room ? 'You can add up to ' + MAX_PHOTOS + ' photos to one note.' : '';
 
     setIsPreparingPhotos(true);
     const ready = [];
-    for (let i = 0; i < chosen.length && i < room; i++) {
-      let file = chosen[i];
-      if (file.type !== 'image/jpeg' && file.type !== 'image/png') {
-        setErrors({ photos: 'Please choose JPG or PNG photos.' });
+    for (let i = 0; i < chosen.length && ready.length < room; i++) {
+      if (!chosen[i].type.startsWith('image/')) {
+        problem = 'Please choose photos only.';
         continue;
       }
-      try {
-        // Read the photo now (phones may not let us read it again later), and make big photos smaller
-        if (file.size > MAX_PHOTO_BYTES) {
-          file = await compressImage(file, MAX_PHOTO_BYTES);
-        } else {
-          file = new File([await file.arrayBuffer()], file.name, { type: file.type });
-        }
-      } catch {
-        file = null;
-      }
+      const file = await preparePhoto(chosen[i]);
       if (!file) {
-        setErrors({ photos: 'One photo could not be opened. Please choose it again.' });
+        problem = 'One photo could not be opened. Please try again.';
         continue;
       }
       ready.push({ file: file, previewUrl: URL.createObjectURL(file) });
     }
     setIsPreparingPhotos(false);
+    setErrors(problem ? { photos: problem } : {});
     setPhotos(function (current) {
       return current.concat(ready);
     });
+  }
+
+  function handlePhotosChosen(event) {
+    const chosen = Array.from(event.target.files || []);
+    event.target.value = '';
+    addPhotoFiles(chosen);
+  }
+
+  // Ctrl + V / long-press "Paste" in the note box: pasted photos are added, pasted text goes in the box as usual
+  function handlePaste(event) {
+    const items = event.clipboardData ? Array.from(event.clipboardData.items || []) : [];
+    const pasted = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file') {
+        const file = items[i].getAsFile();
+        if (file && file.type.startsWith('image/')) {
+          pasted.push(file);
+        }
+      }
+    }
+    if (pasted.length > 0) {
+      event.preventDefault();
+      setPasteHint('');
+      addPhotoFiles(pasted);
+    }
+  }
+
+  // "Paste photo" button: reads a copied photo (works in Chrome on computers and most phones)
+  async function pasteFromClipboard() {
+    setPasteHint('');
+    if (!navigator.clipboard || !navigator.clipboard.read) {
+      setPasteHint('Tap and hold in the note box above, then choose Paste.');
+      return;
+    }
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      const found = [];
+      for (let i = 0; i < clipboardItems.length; i++) {
+        const types = clipboardItems[i].types;
+        for (let j = 0; j < types.length; j++) {
+          if (types[j] === 'image/png' || types[j] === 'image/jpeg') {
+            const blob = await clipboardItems[i].getType(types[j]);
+            found.push(new File([blob], namePhoto({ name: '', type: types[j] }), { type: types[j] }));
+            break;
+          }
+        }
+      }
+      if (found.length === 0) {
+        setPasteHint('No photo was copied. In WhatsApp, open the photo, tap ⋮ → Copy (or Share → Copy), then try again.');
+        return;
+      }
+      addPhotoFiles(found);
+    } catch {
+      setPasteHint('The browser did not allow pasting here. Tap and hold in the note box above, then choose Paste.');
+    }
   }
 
   function removePhoto(index) {
@@ -239,9 +269,9 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
     }
     setText('');
     setType('other');
-    setFollowUpDate('');
     setPhotos([]);
     setErrors({});
+    setPasteHint('');
   }
 
   async function handleAdd(event) {
@@ -257,7 +287,7 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
       for (let i = 0; i < photos.length; i++) {
         files.push(photos[i].file);
       }
-      const updated = await addNote(application.id, { text: text.trim(), type: type, followUpDate: followUpDate }, files);
+      const updated = await addNote(application.id, { text: text.trim(), type: type, followUpDate: '' }, files);
       onUpdated(updated);
       clearForm();
     } catch (error) {
@@ -273,7 +303,7 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
     }
   }
 
-  // ---------- Edit / delete / follow-up ----------
+  // ---------- Edit / delete ----------
 
   async function saveEdit() {
     if (!editing.text.trim()) {
@@ -283,11 +313,7 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
     setIsSavingEdit(true);
     setEditErrors({});
     try {
-      const updated = await editNote(application.id, editing.id, {
-        text: editing.text.trim(),
-        type: editing.type,
-        followUpDate: editing.followUpDate,
-      });
+      const updated = await editNote(application.id, editing.id, { text: editing.text.trim(), type: editing.type, followUpDate: '' });
       onUpdated(updated);
       setEditing(null);
     } catch (error) {
@@ -318,19 +344,6 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
     }
   }
 
-  async function toggleFollowUp(note, done) {
-    setBusyFollowUpId(note.id);
-    setListError('');
-    try {
-      const updated = await setFollowUpDone(application.id, note.id, done);
-      onUpdated(updated);
-    } catch (error) {
-      handleError(error, setListError);
-    } finally {
-      setBusyFollowUpId(null);
-    }
-  }
-
   const notes = application.notes || [];
 
   return (
@@ -340,7 +353,7 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
       </h2>
       <div className="px-4 py-4 sm:px-5">
         {canChange && (
-          <form onSubmit={handleAdd}>
+          <form onSubmit={handleAdd} onPaste={handlePaste}>
             {/* One-click notes */}
             <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-wide text-slate-400">Quick note</p>
             <div className="mb-3 flex flex-wrap gap-1.5">
@@ -360,12 +373,7 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
               })}
             </div>
 
-            <TypePicker
-              value={type}
-              onChange={function (value) {
-                setType(value);
-              }}
-            />
+            <TypePicker value={type} onChange={setType} />
 
             <label htmlFor="note-text" className="sr-only">
               Note
@@ -379,44 +387,27 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
                 setText(event.target.value);
                 setErrors({});
               }}
-              placeholder="e.g. Called, will join on Monday"
+              placeholder="e.g. Called, will join on Monday. You can also paste a photo here."
               className={textareaClass + ' mt-2.5'}
             />
             <ErrorText>{errors.note}</ErrorText>
 
-            {/* Follow-up date + photos */}
-            <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <label className="flex items-center gap-2 text-[13px] font-medium text-slate-600">
-                Follow-up
-                <input
-                  type="date"
-                  value={followUpDate}
-                  min={toDateText(new Date())}
-                  onChange={function (event) {
-                    setFollowUpDate(event.target.value);
-                  }}
-                  className={dateInputClass}
-                />
-              </label>
-              {followUpDate && (
-                <button
-                  type="button"
-                  onClick={function () {
-                    setFollowUpDate('');
-                  }}
-                  className="text-xs font-semibold text-slate-500 hover:text-slate-800"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-            <ErrorText>{errors.followUpDate}</ErrorText>
-
+            {/* Photos: choose, camera, paste */}
             <input
               ref={photoInputRef}
               type="file"
-              accept=".jpg,.jpeg,.png"
+              accept="image/jpeg,image/png"
               multiple
+              onChange={handlePhotosChosen}
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
               onChange={handlePhotosChosen}
               className="sr-only"
               tabIndex={-1}
@@ -441,27 +432,59 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
                 );
               })}
               {photos.length < MAX_PHOTOS && (
-                <button
-                  type="button"
-                  disabled={isPreparingPhotos}
-                  onClick={function () {
-                    photoInputRef.current.click();
-                  }}
-                  className="inline-flex h-14 items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 text-xs font-semibold text-slate-600 transition hover:border-brand-600 hover:text-brand-700 disabled:opacity-60"
-                >
-                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path
-                      fillRule="evenodd"
-                      d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .41.34.75.75.75h13.5c.41 0 .75-.34.75-.75v-2.69l-2.22-2.22a.75.75 0 00-1.06 0l-1.91 1.91-4.03-4.03a.75.75 0 00-1.06 0L2.5 11.06zM12.75 7a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  {isPreparingPhotos ? 'Preparing…' : photos.length === 0 ? 'Add photos' : 'Add more'}
-                  <span className="font-normal text-slate-400">({photos.length}/{MAX_PHOTOS})</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    disabled={isPreparingPhotos}
+                    onClick={function () {
+                      photoInputRef.current.click();
+                    }}
+                    className={photoButtonClass}
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path
+                        fillRule="evenodd"
+                        d="M1 5.25A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25v9.5A2.25 2.25 0 0116.75 17H3.25A2.25 2.25 0 011 14.75v-9.5zm1.5 5.81v3.69c0 .41.34.75.75.75h13.5c.41 0 .75-.34.75-.75v-2.69l-2.22-2.22a.75.75 0 00-1.06 0l-1.91 1.91-4.03-4.03a.75.75 0 00-1.06 0L2.5 11.06zM12.75 7a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    {isPreparingPhotos ? 'Preparing…' : 'Add photos'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isPreparingPhotos}
+                    onClick={function () {
+                      cameraInputRef.current.click();
+                    }}
+                    className={photoButtonClass}
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path
+                        fillRule="evenodd"
+                        d="M1 8a2 2 0 012-2h.93a2 2 0 001.66-.89l.82-1.22A2 2 0 018.07 3h3.86a2 2 0 011.66.89l.82 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v7a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm13.5 3a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM10 14a3 3 0 100-6 3 3 0 000 6z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Camera
+                  </button>
+                  <button type="button" disabled={isPreparingPhotos} onClick={pasteFromClipboard} className={photoButtonClass}>
+                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path
+                        fillRule="evenodd"
+                        d="M13.89 3.39A2.25 2.25 0 0011.75 2h-3.5a2.25 2.25 0 00-2.14 1.39A2.25 2.25 0 004 5.6v10.15A2.25 2.25 0 006.25 18h7.5A2.25 2.25 0 0016 15.75V5.6a2.25 2.25 0 00-2.11-2.21zM8.25 3.5a.75.75 0 00-.75.75v.5h5v-.5a.75.75 0 00-.75-.75h-3.5z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Paste photo
+                  </button>
+                  <span className="text-xs text-slate-400">
+                    {photos.length}/{MAX_PHOTOS}
+                  </span>
+                </>
               )}
             </div>
             <ErrorText>{errors.photos}</ErrorText>
+            {pasteHint && <p className="mt-1.5 text-[13px] text-slate-600">{pasteHint}</p>}
 
             <div className="mt-3 flex items-center justify-between gap-3">
               <span className="text-xs text-slate-400">
@@ -515,29 +538,6 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
                         className={textareaClass + ' mt-2'}
                       />
                       <ErrorText>{editErrors.note}</ErrorText>
-                      <label className="mt-2 flex items-center gap-2 text-[13px] font-medium text-slate-600">
-                        Follow-up
-                        <input
-                          type="date"
-                          value={editing.followUpDate}
-                          onChange={function (event) {
-                            setEditing({ ...editing, followUpDate: event.target.value });
-                          }}
-                          className={dateInputClass}
-                        />
-                        {editing.followUpDate && (
-                          <button
-                            type="button"
-                            onClick={function () {
-                              setEditing({ ...editing, followUpDate: '' });
-                            }}
-                            className="text-xs font-semibold text-slate-500 hover:text-slate-800"
-                          >
-                            Clear
-                          </button>
-                        )}
-                      </label>
-                      <ErrorText>{editErrors.followUpDate}</ErrorText>
                       <div className="mt-2.5 flex justify-end gap-2">
                         <button
                           type="button"
@@ -563,13 +563,13 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
                   );
                 }
 
-                const hasOpenFollowUp = Boolean(dateOnly(note.followUpDate)) && !note.followUpDoneAt;
+                // The type picker no longer offers "Follow-up": such older notes are edited as a plain "Note"
+                const editType = findType(note.type).hidden ? 'other' : note.type || 'other';
                 return (
                   <li key={note.id} className="rounded-lg bg-slate-50 px-3 py-2.5">
                     <div className="flex items-start gap-2">
                       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
                         <TypeTag type={note.type} />
-                        <FollowUpBadge note={note} />
                       </div>
                       {canEdit && (
                         <button
@@ -577,7 +577,7 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
                           title="Edit this note"
                           aria-label={'Edit note by ' + note.authorName}
                           onClick={function () {
-                            setEditing({ id: note.id, text: note.text, type: note.type || 'other', followUpDate: dateOnly(note.followUpDate) });
+                            setEditing({ id: note.id, text: note.text, type: editType });
                             setEditErrors({});
                           }}
                           className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
@@ -623,36 +623,10 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
                       </div>
                     )}
 
-                    <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs text-slate-500">
-                        {note.authorName} · {formatDateTime(note.createdAt)}
-                        {note.editedAt && <span title={'Edited ' + formatDateTime(note.editedAt)}> · (edited)</span>}
-                      </p>
-                      {canChange && hasOpenFollowUp && (
-                        <button
-                          type="button"
-                          disabled={busyFollowUpId === note.id}
-                          onClick={function () {
-                            toggleFollowUp(note, true);
-                          }}
-                          className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-50 disabled:opacity-60"
-                        >
-                          {busyFollowUpId === note.id ? 'Saving…' : '✓ Mark follow-up done'}
-                        </button>
-                      )}
-                      {canChange && note.followUpDoneAt && (
-                        <button
-                          type="button"
-                          disabled={busyFollowUpId === note.id}
-                          onClick={function () {
-                            toggleFollowUp(note, false);
-                          }}
-                          className="text-xs font-semibold text-slate-400 hover:text-slate-700"
-                        >
-                          Undo
-                        </button>
-                      )}
-                    </div>
+                    <p className="mt-1.5 text-xs text-slate-500">
+                      {note.authorName} · {formatDateTime(note.createdAt)}
+                      {note.editedAt && <span title={'Edited ' + formatDateTime(note.editedAt)}> · (edited)</span>}
+                    </p>
                   </li>
                 );
               })}

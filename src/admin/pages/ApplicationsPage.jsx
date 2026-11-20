@@ -53,9 +53,6 @@ const VISITED_OPTIONS = [
   { value: "no", label: "Not visited" },
 ];
 
-// HR notes with a follow-up date that is today or earlier and not done yet
-const FOLLOW_UP_OPTIONS = [{ value: "due", label: "Follow-up due" }];
-
 // Pursuing (still studying) / Passout (finished)
 const EDUCATION_OPTIONS = [
   { value: "pursuing", label: "Pursuing" },
@@ -177,7 +174,6 @@ function ApplicationsPage() {
     joined: searchParams.get("joined") || "", // '', today, yes, no
     applicant: searchParams.get("applicant") || "", // '', returning, new
     education: searchParams.get("education") || "", // '', pursuing, passout
-    followUp: searchParams.get("followUp") || "", // '', due
     search: searchParams.get("search") || "",
     period: searchParams.get("period") || "", // '', today, yesterday, week, month, lastMonth, custom
     customFrom: searchParams.get("from") || "",
@@ -203,7 +199,6 @@ function ApplicationsPage() {
     joined: filters.joined,
     applicant: filters.applicant,
     education: filters.education,
-    followUp: filters.followUp,
     search: filters.search,
     from: dateRange.from,
     to: dateRange.to,
@@ -382,7 +377,6 @@ function ApplicationsPage() {
     filters.joined ||
     filters.applicant ||
     filters.education ||
-    filters.followUp ||
     filters.search ||
     filters.period;
   const rangeText = describeRange(dateRange);
@@ -424,21 +418,6 @@ function ApplicationsPage() {
                 >
                   {stats.joinedToday} joined today
                 </button>
-                {stats.followUpsDue > 0 && (
-                  <>
-                    {" · "}
-                    <button
-                      type="button"
-                      onClick={function () {
-                        updateFilter("followUp", "due");
-                      }}
-                      className="font-semibold text-amber-700 hover:underline"
-                      title="Show the students with a follow-up due today or earlier"
-                    >
-                      {stats.followUpsDue} follow-up{stats.followUpsDue === 1 ? "" : "s"} due
-                    </button>
-                  </>
-                )}
               </>
             )}
             {rangeText && (
@@ -717,17 +696,7 @@ function ApplicationsPage() {
                 Clear filters
               </button>
             )}
-            <div className="w-full sm:ml-auto sm:w-48">
-              <FilterSelect
-                label="Follow-up"
-                value={filters.followUp}
-                options={FOLLOW_UP_OPTIONS}
-                onChange={function (value) {
-                  updateFilter("followUp", value);
-                }}
-              />
-            </div>
-            <div className="w-full sm:w-56">
+            <div className="ml-auto w-full sm:w-56">
               <FilterSelect
                 label="Pursuing / Passout"
                 value={filters.education}
