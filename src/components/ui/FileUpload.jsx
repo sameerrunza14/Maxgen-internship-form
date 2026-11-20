@@ -2,6 +2,56 @@ import { useEffect, useRef, useState } from 'react';
 import { FieldError } from './Field';
 import { checkFileType, checkFileSize } from '../../utils/validation';
 import { compressImage } from '../../utils/compressImage';
+import { imagesToPdf, shrinkPdf } from '../../utils/pdfTools';
+
+function isImageFile(file) {
+  return file.type === 'image/jpeg' || file.type === 'image/png';
+}
+
+// Phones (Android Chrome especially) do not give the form the file itself, only a link to it.
+// When Submit is pressed minutes later, the phone sometimes refuses to read it again
+// (file from Google Photos, Drive or WhatsApp) and the upload fails as if there were no internet.
+// So we read the whole file once, right when it is chosen, and keep that copy.
+// Works the same for a file from the gallery, camera, WhatsApp, Google Drive or Files.
+
+// Older way of reading a file (some phones / browsers only allow this one)
+function readWithFileReader(file) {
+  return new Promise(function (resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = function () {
+      resolve(reader.result);
+    };
+    reader.onerror = function () {
+      reject(reader.error);
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// Returns the copy, or null if the file could not be read at all (tried 3 times, 2 ways)
+async function copyIntoMemory(file) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const bytes = attempt === 1 ? await file.arrayBuffer() : await readWithFileReader(file);
+      if (bytes && bytes.byteLength > 0) {
+        return new File([bytes], file.name, { type: file.type, lastModified: file.lastModified || Date.now() });
+      }
+    } catch {
+      // try again in a moment (cloud files sometimes need a second to arrive)
+    }
+    await new Promise(function (resolve) {
+      setTimeout(resolve, 600);
+    });
+  }
+  return null;
+}
+
+const CANNOT_READ_MESSAGE = 'This file could not be opened. Please tap to choose it again.';
+
+// "Aadhaar Card / PAN Card" -> "Aadhaar Card - PAN Card (front and back).pdf"
+function combinedFileName(label) {
+  return label.replace(/[^A-Za-z0-9 ]/g, '-').replace(/\s+/g, ' ').trim() + ' (front and back).pdf';
+}
 
 function formatSize(bytes) {
   if (bytes < 1024 * 1024) {
@@ -33,13 +83,19 @@ function PdfBadge() {
 /**
  * Drag & drop upload box for one document.
  * `file` is the selected File (or null). onSelect(name, file) / onRemove(name) update the parent.
+ *
+ * config.twoPhotos: the student can give a front and a back photo (select both together, or add the back
+ *                   later). Both are joined into one PDF.
+ * config.shrinkPdf: a PDF above the size limit is made smaller in the browser.
  */
 export function FileUpload({ config, file, error, onSelect, onRemove, onError }) {
   const inputRef = useRef(null);
+  const backInputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [previewUrl, setPreviewUrl] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [resizedFrom, setResizedFrom] = useState(0); // original size in bytes, if we made the photo smaller
+  const [processingText, setProcessingText] = useState(''); // e.g. 'Making your photo smaller…' while busy
+  const [readyText, setReadyText] = useState(''); // e.g. 'Resized from 3.2 MB to 310 KB' after we changed the file
+  const isProcessing = processingText !== '';
 
   // Create a preview for image files and clean it up afterwards
   useEffect(
@@ -57,8 +113,38 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
     [file]
   );
 
-  async function handleFile(selectedFile) {
+  // Front + back photos -> one PDF
+  async function joinPhotos(chosenFront, chosenBack) {
+    const front = await copyIntoMemory(chosenFront);
+    const back = await copyIntoMemory(chosenBack);
+    if (!front || !back) {
+      onError(config.name, CANNOT_READ_MESSAGE);
+      return;
+    }
+    const maxBytes = config.maxSizeKB * 1024;
+    setProcessingText('Joining front and back into one PDF…');
+    let pdfFile = null;
+    try {
+      pdfFile = await imagesToPdf([front, back], maxBytes, combinedFileName(config.label));
+    } catch {
+      pdfFile = null;
+    }
+    setProcessingText('');
+    if (!pdfFile) {
+      onError(config.name, 'These photos could not be joined into a PDF under ' + config.maxSizeKB + ' KB. Please try other photos.');
+      return;
+    }
+    setReadyText('Front and back joined into one PDF, ' + formatSize(pdfFile.size) + ', ready');
+    onSelect(config.name, pdfFile);
+  }
+
+  async function handleFile(chosenFile) {
+    if (!chosenFile) {
+      return;
+    }
+    const selectedFile = await copyIntoMemory(chosenFile);
     if (!selectedFile) {
+      onError(config.name, CANNOT_READ_MESSAGE);
       return;
     }
 
@@ -69,25 +155,44 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
     }
 
     const maxBytes = config.maxSizeKB * 1024;
-    const isImage = selectedFile.type === 'image/jpeg' || selectedFile.type === 'image/png';
 
     // A photo that is too large is made smaller automatically
-    if (isImage && selectedFile.size > maxBytes) {
-      setIsProcessing(true);
+    if (isImageFile(selectedFile) && selectedFile.size > maxBytes) {
+      setProcessingText('Making your photo smaller…');
       let smallerFile = null;
       try {
         smallerFile = await compressImage(selectedFile, maxBytes);
       } catch {
         smallerFile = null;
       }
-      setIsProcessing(false);
+      setProcessingText('');
 
       if (!smallerFile) {
         onError(config.name, 'This photo could not be made smaller than ' + config.maxSizeKB + ' KB. Please try another photo.');
         return;
       }
-      setResizedFrom(selectedFile.size);
+      setReadyText('Resized from ' + formatSize(selectedFile.size) + ' to ' + formatSize(smallerFile.size) + ', ready');
       onSelect(config.name, smallerFile);
+      return;
+    }
+
+    // A PDF that is too large is made smaller automatically (ID documents only, not the resume)
+    if (selectedFile.type === 'application/pdf' && selectedFile.size > maxBytes && config.shrinkPdf) {
+      setProcessingText('Making your PDF smaller…');
+      let result;
+      try {
+        result = await shrinkPdf(selectedFile, maxBytes);
+      } catch {
+        result = { error: 'This PDF could not be made smaller. Please upload a photo of the document instead.' };
+      }
+      setProcessingText('');
+
+      if (result.error) {
+        onError(config.name, result.error);
+        return;
+      }
+      setReadyText('Made smaller from ' + formatSize(selectedFile.size) + ' to ' + formatSize(result.file.size) + ', ready');
+      onSelect(config.name, result.file);
       return;
     }
 
@@ -97,20 +202,55 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
       return;
     }
 
-    setResizedFrom(0);
+    setReadyText('');
     onSelect(config.name, selectedFile);
   }
 
+  // One file, or (for twoPhotos) two photos: front and back
+  function handleFiles(fileList) {
+    const chosen = Array.from(fileList || []);
+    if (chosen.length === 0) {
+      return;
+    }
+    if (chosen.length === 1 || !config.twoPhotos) {
+      handleFile(chosen[0]);
+      return;
+    }
+    if (chosen.length > 2) {
+      onError(config.name, 'Please select only 2 photos: the front and the back.');
+      return;
+    }
+    if (!isImageFile(chosen[0]) || !isImageFile(chosen[1])) {
+      onError(config.name, 'To upload two files, select 2 photos (JPG or PNG): the front and the back. Or upload one PDF.');
+      return;
+    }
+    joinPhotos(chosen[0], chosen[1]);
+  }
+
   function handleInputChange(event) {
-    handleFile(event.target.files[0]);
+    handleFiles(event.target.files);
     // Reset so selecting the same file again still triggers onChange
     event.target.value = '';
+  }
+
+  // "Add back side": the photo already chosen is the front
+  function handleBackInputChange(event) {
+    const back = event.target.files[0];
+    event.target.value = '';
+    if (!back || !file) {
+      return;
+    }
+    if (!isImageFile(back)) {
+      onError(config.name, 'Please choose a photo (JPG or PNG) of the back side.');
+      return;
+    }
+    joinPhotos(file, back);
   }
 
   function handleDrop(event) {
     event.preventDefault();
     setIsDragging(false);
-    handleFile(event.dataTransfer.files[0]);
+    handleFiles(event.dataTransfer.files);
   }
 
   function openPicker() {
@@ -118,6 +258,8 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
   }
 
   const inputId = 'file-' + config.name;
+  // Front photo chosen alone: offer to add the back side
+  const canAddBackSide = Boolean(config.twoPhotos && file && isImageFile(file));
 
   return (
     <div>
@@ -132,15 +274,34 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
         )}
       </div>
 
+      {config.twoPhotos && (
+        <p className="-mt-0.5 mb-2 text-xs leading-relaxed text-slate-500">
+          Card has 2 sides? Select both photos (front and back) together, or add the back after the front. They are
+          joined into one PDF.
+        </p>
+      )}
+
       <input
         ref={inputRef}
         id={inputId}
         type="file"
         accept={config.accept}
+        multiple={Boolean(config.twoPhotos)}
         onChange={handleInputChange}
         className="sr-only"
         aria-describedby={error ? inputId + '-error' : undefined}
       />
+      {config.twoPhotos && (
+        <input
+          ref={backInputRef}
+          type="file"
+          accept=".jpg,.jpeg,.png"
+          onChange={handleBackInputChange}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      )}
 
       {file ? (
         <div
@@ -166,22 +327,23 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
                   clipRule="evenodd"
                 />
               </svg>
-              {resizedFrom > 0
-                ? 'Resized from ' + formatSize(resizedFrom) + ' to ' + formatSize(file.size) + ', ready'
-                : formatSize(file.size) + ', ready'}
+              {isProcessing ? processingText : readyText || formatSize(file.size) + ', ready'}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
               onClick={openPicker}
-              className="rounded-lg px-2.5 py-2 text-xs font-semibold text-brand-700 transition hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+              disabled={isProcessing}
+              className="rounded-lg px-2.5 py-2 text-xs font-semibold text-brand-700 transition hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 disabled:opacity-50"
             >
               Replace
             </button>
             <button
               type="button"
+              disabled={isProcessing}
               onClick={function () {
+                setReadyText('');
                 onRemove(config.name);
               }}
               aria-label={'Remove ' + config.label}
@@ -235,9 +397,25 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
               <span className="hidden sm:inline"> or drag and drop</span>
             </span>
             <span className="mt-0.5 block text-xs text-slate-500 sm:mt-1">
-              {isProcessing ? 'Making your photo smaller…' : config.allowedLabel + ', up to ' + config.maxSizeKB + ' KB'}
+              {isProcessing ? processingText : config.allowedLabel + ', up to ' + config.maxSizeKB + ' KB'}
             </span>
           </span>
+        </button>
+      )}
+
+      {canAddBackSide && (
+        <button
+          type="button"
+          disabled={isProcessing}
+          onClick={function () {
+            backInputRef.current.click();
+          }}
+          className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-brand-300 bg-brand-50/50 px-3 py-2 text-xs font-semibold text-brand-700 transition hover:border-brand-600 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 disabled:opacity-50"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+          </svg>
+          {isProcessing ? processingText : 'Add back side (optional)'}
         </button>
       )}
 

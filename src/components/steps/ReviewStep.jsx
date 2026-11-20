@@ -1,5 +1,5 @@
 import { FieldError } from '../ui/Field';
-import { DECLARATION_TEXT, DOCUMENTS, STEPS } from '../../constants/formOptions';
+import { DECLARATION_TEXT, STEPS, getDocumentsFor, educationStatusLabel } from '../../constants/formOptions';
 import { buildReferenceText } from '../../services/applicationApi';
 
 function ReviewSection({ title, stepIndex, rows, onEdit }) {
@@ -45,11 +45,27 @@ function ReviewStep({ values, files, errors, onValueChange, onEdit }) {
     semesterText = 'Semester ' + values.semester;
   }
 
+  const isPassout = values.educationStatus === 'passout';
+
+  const documents = getDocumentsFor(values.educationStatus);
   const documentRows = [];
-  for (let i = 0; i < DOCUMENTS.length; i++) {
-    const file = files[DOCUMENTS[i].name];
-    documentRows.push({ label: DOCUMENTS[i].label, value: file ? file.name : 'Not uploaded' });
+  for (let i = 0; i < documents.length; i++) {
+    const file = files[documents[i].name];
+    documentRows.push({ label: documents[i].label, value: file ? file.name : 'Not uploaded' });
   }
+
+  const educationRows = [
+    { label: 'Current status', value: values.educationStatus ? educationStatusLabel(values.educationStatus) : '' },
+    { label: 'Qualification', value: qualification },
+    { label: 'Specialization', value: values.specialization },
+    { label: 'College / University', value: values.institute },
+  ];
+  if (isPassout) {
+    educationRows.push({ label: 'Training center / Company', value: values.trainingCenter });
+  } else {
+    educationRows.push({ label: 'Current semester', value: semesterText });
+  }
+  educationRows.push({ label: 'Passout year', value: values.passoutYear });
 
   return (
     <div className="space-y-4">
@@ -71,13 +87,7 @@ function ReviewStep({ values, files, errors, onValueChange, onEdit }) {
         title={STEPS[1].title}
         stepIndex={1}
         onEdit={onEdit}
-        rows={[
-          { label: 'Qualification', value: qualification },
-          { label: 'Specialization', value: values.specialization },
-          { label: 'Institute', value: values.institute },
-          { label: 'Current semester', value: semesterText },
-          { label: 'Passout year', value: values.passoutYear },
-        ]}
+        rows={educationRows}
       />
 
       <ReviewSection

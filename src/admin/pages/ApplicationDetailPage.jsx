@@ -2,24 +2,25 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import StatusBadge from '../components/StatusBadge';
+import EducationBadge from '../components/EducationBadge';
 import { ReturningTag, VisitedTag, JoinedTag, ordinal } from '../components/Tags';
 import CertificatesSection from '../components/CertificatesSection';
+import NotesSection from '../components/NotesSection';
+import FeesSection from '../components/FeesSection';
 import { ConfirmDialog, secondaryButton } from '../components/AdminUi';
 import { useAdmin } from '../AdminAuth';
 import {
   getApplication,
   updateStatus,
   openDocument,
-  addNote,
-  deleteNote,
-  editNote,
   updateVisited,
   updateJoined,
   moveToTrash,
   restoreApplication,
   SessionExpiredError,
 } from '../adminApi';
-import { formatDateTime, formatPhone, formatFileSize } from '../formatters';
+import { formatDate, formatDateTime, formatPhone, formatFileSize } from '../formatters';
+import { toDateText } from '../dateRanges';
 import { DOCUMENTS } from '../../constants/formOptions';
 
 function Section({ title, children }) {
@@ -73,41 +74,37 @@ function ApplicationDetailPage() {
   const [confirmAction, setConfirmAction] = useState(''); // 'trash' or a note id to delete
   const [isBusy, setIsBusy] = useState(false);
   const [isSavingVisit, setIsSavingVisit] = useState(false);
-  // Editing a note: { id, text } while the edit box is open
-  const [editingNote, setEditingNote] = useState(null);
-  const [editNoteError, setEditNoteError] = useState('');
-  const [isSavingNoteEdit, setIsSavingNoteEdit] = useState(false);
+  const [isSavingJoin, setIsSavingJoin] = useState(false);
+  // "Mark as joined?" box: open while HR confirms, with the "send welcome email" tick box
+  const [confirmJoin, setConfirmJoin] = useState(false);
+  const [sendJoinEmail, setSendJoinEmail] = useState(true);
+  const [joiningDate, setJoiningDate] = useState(''); // 'YYYY-MM-DD', starts with today
 
-  async function saveNoteEdit() {
-    if (!editingNote.text.trim()) {
-      setEditNoteError('Please write a note.');
+  // Ticking the box asks first (it accepts the application and emails the student). Unticking is direct.
+  function handleJoinedTick(joined) {
+    if (joined) {
+      setSendJoinEmail(!application.joiningEmailAt); // already sent once? then not ticked
+      setJoiningDate(toDateText(new Date()));
+      setConfirmStatus('');
+      setStatusMessage({ text: '', isWarning: false });
+      setConfirmJoin(true);
       return;
     }
-    setIsSavingNoteEdit(true);
-    setEditNoteError('');
-    try {
-      const updated = await editNote(id, editingNote.id, editingNote.text.trim());
-      setApplication(updated);
-      setEditingNote(null);
-    } catch (error) {
-      if (error.fieldErrors && error.fieldErrors.note) {
-        setEditNoteError(error.fieldErrors.note);
-      } else {
-        handleError(error, setEditNoteError);
-      }
-    } finally {
-      setIsSavingNoteEdit(false);
-    }
+    handleJoined(false, false);
   }
 
-  const [isSavingJoin, setIsSavingJoin] = useState(false);
-
-  async function handleJoined(joined) {
+  async function handleJoined(joined, sendEmail) {
     setIsSavingJoin(true);
     setActionError('');
+    setStatusMessage({ text: '', isWarning: false });
     try {
-      const updated = await updateJoined(id, joined);
-      setApplication(updated);
+      const result = await updateJoined(id, joined, sendEmail, joined ? joiningDate : '');
+      setApplication(result.application);
+      setConfirmJoin(false);
+      if (joined) {
+        const isWarning = result.emailResult === 'failed' || result.emailResult === 'off';
+        setStatusMessage({ text: result.message, isWarning: isWarning });
+      }
     } catch (error) {
       handleError(error, setActionError);
     } finally {
@@ -128,33 +125,6 @@ function ApplicationDetailPage() {
     }
   }
   const [openingDocument, setOpeningDocument] = useState('');
-  const [noteText, setNoteText] = useState('');
-  const [noteError, setNoteError] = useState('');
-  const [isSavingNote, setIsSavingNote] = useState(false);
-
-  async function handleAddNote(event) {
-    event.preventDefault();
-    if (!noteText.trim()) {
-      setNoteError('Please write a note.');
-      return;
-    }
-    setIsSavingNote(true);
-    setNoteError('');
-    try {
-      const updated = await addNote(id, noteText.trim());
-      setApplication(updated);
-      setNoteText('');
-    } catch (error) {
-      if (error instanceof SessionExpiredError) {
-        handleError(error, setNoteError);
-      } else {
-        setNoteError(error.fieldErrors && error.fieldErrors.note ? error.fieldErrors.note : error.message);
-      }
-    } finally {
-      setIsSavingNote(false);
-    }
-  }
-
   // ---------- Superadmin: trash / restore / delete note ----------
 
   async function handleTrash() {
@@ -180,21 +150,6 @@ function ApplicationDetailPage() {
       setStatusMessage({ text: message, isWarning: false });
     } catch (error) {
       handleError(error, setActionError);
-    } finally {
-      setIsBusy(false);
-    }
-  }
-
-  async function handleDeleteNote(noteId) {
-    setIsBusy(true);
-    setNoteError('');
-    try {
-      const updated = await deleteNote(id, noteId);
-      setApplication(updated);
-      setConfirmAction('');
-    } catch (error) {
-      setConfirmAction('');
-      handleError(error, setNoteError);
     } finally {
       setIsBusy(false);
     }
@@ -234,6 +189,7 @@ function ApplicationDetailPage() {
   function askToConfirm(status) {
     const alreadyEmailed = application.lastStatusEmail && application.lastStatusEmail.status === status;
     setSendStatusEmail(!alreadyEmailed);
+    setConfirmJoin(false);
     setStatusMessage({ text: '', isWarning: false });
     setConfirmStatus(status);
   }
@@ -335,6 +291,7 @@ function ApplicationDetailPage() {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{app.fullName}</h1>
             <StatusBadge status={app.status} large />
+            <EducationBadge status={app.educationStatus} large />
             {app.earlierCount > 0 && <ReturningTag earlierCount={app.earlierCount} />}
           </div>
           <p className="mt-1 text-sm text-slate-500">
@@ -393,7 +350,90 @@ function ApplicationDetailPage() {
 
         {/* Accept / Reject */}
         <div className={'shrink-0 lg:w-72' + (app.deletedAt ? ' hidden' : '')}>
-          {confirmStatus ? (
+          {confirmJoin ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+              <p className="text-sm font-semibold text-slate-900">Mark {app.fullName.split(' ')[0]} as joined?</p>
+              <p className="mt-1 text-[13px] text-slate-600">
+                {app.status === 'accepted'
+                  ? 'The student has joined the internship.'
+                  : 'The application is marked as Accepted automatically. No need to Accept or Reject.'}
+              </p>
+              <label className="mt-3 block">
+                <span className="mb-1 block text-[13px] font-semibold text-slate-900">Joining date</span>
+                <input
+                  type="date"
+                  value={joiningDate}
+                  onChange={function (event) {
+                    setJoiningDate(event.target.value);
+                  }}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15"
+                />
+                <span className="mt-1 block text-xs text-slate-500">Shown in the joining confirmation email.</span>
+              </label>
+              <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg bg-white px-3 py-2.5 ring-1 ring-slate-200">
+                <input
+                  type="checkbox"
+                  checked={sendJoinEmail}
+                  onChange={function (event) {
+                    setSendJoinEmail(event.target.checked);
+                  }}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-brand-700"
+                />
+                <span className="text-[13px] leading-snug text-slate-700">
+                  <span className="font-semibold text-slate-900">Email the student</span>
+                  <br />
+                  Joining confirmation email: selection, joining date and joining instructions.
+                  {app.joiningEmailAt && (
+                    <span className="mt-1 block text-amber-700">This email was already sent on {formatDateTime(app.joiningEmailAt)}.</span>
+                  )}
+                </span>
+              </label>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  disabled={isSavingJoin || !joiningDate}
+                  onClick={function () {
+                    handleJoined(true, sendJoinEmail);
+                  }}
+                  className="flex-1 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-70"
+                >
+                  {isSavingJoin ? 'Saving…' : 'Yes, mark as joined'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingJoin}
+                  onClick={function () {
+                    setConfirmJoin(false);
+                  }}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : app.joinedAt ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <p className="flex items-center gap-2 text-sm font-semibold text-emerald-800">
+                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path
+                    fillRule="evenodd"
+                    d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0l-3.5-3.5a1 1 0 111.4-1.4l2.8 2.79 6.8-6.8a1 1 0 011.4 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Joined the internship
+              </p>
+              <p className="mt-1 text-[13px] text-emerald-900/80">
+                {app.joiningDate && (
+                  <span className="block font-semibold text-emerald-900">Joining date: {formatDate(app.joiningDate)}</span>
+                )}
+                Accepted. No need to Accept or Reject.
+                {app.joiningEmailAt
+                  ? ' Joining email sent on ' + formatDateTime(app.joiningEmailAt) + '.'
+                  : ' No joining email sent.'}
+              </p>
+            </div>
+          ) : confirmStatus ? (
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-sm font-semibold text-slate-900">
                 {confirmStatus === 'accepted' ? 'Accept this application?' : 'Reject this application?'}
@@ -521,10 +561,10 @@ function ApplicationDetailPage() {
           >
             <input
               type="checkbox"
-              checked={Boolean(app.joinedAt)}
+              checked={Boolean(app.joinedAt) || confirmJoin}
               disabled={isSavingJoin}
               onChange={function (event) {
-                handleJoined(event.target.checked);
+                handleJoinedTick(event.target.checked);
               }}
               className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700"
             />
@@ -535,7 +575,7 @@ function ApplicationDetailPage() {
               <span className="block text-slate-500">
                 {app.joinedAt
                   ? formatDateTime(app.joinedAt) + (app.joinedBy ? ' · marked by ' + app.joinedBy.name : '')
-                  : 'Tick on the day the student starts.'}
+                  : 'Tick when the student joins. It accepts the application and sends the joining confirmation email.'}
               </span>
             </span>
           </label>
@@ -626,10 +666,15 @@ function ApplicationDetailPage() {
 
           <Section title="Education">
             <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+              <Detail label="Current status" value={app.educationStatus === 'passout' ? 'Passout (finished studies)' : 'Pursuing (still studying)'} wide />
               <Detail label="Qualification" value={app.qualification} />
               <Detail label="Specialization" value={app.specialization} />
-              <Detail label="Institute / training center" value={app.institute} wide />
-              <Detail label="Current semester" value={'Semester ' + app.semester} />
+              <Detail label="College / University" value={app.institute} wide />
+              {app.educationStatus === 'passout' ? (
+                <Detail label="Training center / Company" value={app.trainingCenter} wide />
+              ) : (
+                <Detail label="Current semester" value={app.semester ? 'Semester ' + app.semester : ''} />
+              )}
               <Detail label="Passout year" value={String(app.passoutYear)} />
             </dl>
           </Section>
@@ -651,6 +696,10 @@ function ApplicationDetailPage() {
             <ul className="grid gap-3 sm:grid-cols-2">
               {DOCUMENTS.map(function (documentConfig) {
                 const saved = app.documents ? app.documents[documentConfig.name] : null;
+                // The course certificate is only on the form for passout students
+                if (documentConfig.onlyPassout && app.educationStatus !== 'passout' && !saved) {
+                  return null;
+                }
                 return (
                   <li key={documentConfig.name} className="rounded-lg border border-slate-200 p-3">
                     <p className="text-sm font-semibold text-slate-900">{documentConfig.label}</p>
@@ -699,133 +748,9 @@ function ApplicationDetailPage() {
         </div>
 
         <div className="space-y-5">
-          <Section title={'HR notes' + (app.notes.length > 0 ? ' (' + app.notes.length + ')' : '')}>
-            <form onSubmit={handleAddNote} className={app.deletedAt ? 'hidden' : ''}>
-              <label htmlFor="note" className="sr-only">
-                Add a note
-              </label>
-              <textarea
-                id="note"
-                rows={2}
-                maxLength={500}
-                value={noteText}
-                onChange={function (event) {
-                  setNoteText(event.target.value);
-                  setNoteError('');
-                }}
-                placeholder="e.g. Called, will join on Monday"
-                className="block w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-base text-slate-900 placeholder:text-slate-400 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15 sm:text-sm"
-              />
-              {noteError && <p role="alert" className="mt-1.5 text-[13px] font-medium text-accent-600">{noteError}</p>}
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <span className="text-xs text-slate-400">{noteText.length}/500</span>
-                <button
-                  type="submit"
-                  disabled={isSavingNote}
-                  className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-800 disabled:opacity-60"
-                >
-                  {isSavingNote ? 'Saving…' : 'Add note'}
-                </button>
-              </div>
-            </form>
+          <NotesSection application={app} admin={admin} isSuperadmin={isSuperadmin} onUpdated={setApplication} />
 
-            {app.notes.length > 0 && (
-              <ol className="mt-4 space-y-3 border-t border-slate-100 pt-4">
-                {app.notes
-                  .slice()
-                  .reverse()
-                  .map(function (note) {
-                    // HR can edit their own notes; the superadmin can edit any note
-                    const canEdit = !app.deletedAt && (isSuperadmin || note.adminId === admin.id);
-                    const isEditing = editingNote && editingNote.id === note.id;
-                    if (isEditing) {
-                      return (
-                        <li key={note.id} className="rounded-lg bg-slate-50 px-3 py-2.5 ring-1 ring-brand-200">
-                          <label htmlFor={'edit-note-' + note.id} className="sr-only">
-                            Edit note
-                          </label>
-                          <textarea
-                            id={'edit-note-' + note.id}
-                            rows={3}
-                            maxLength={500}
-                            value={editingNote.text}
-                            autoFocus
-                            onChange={function (event) {
-                              setEditingNote({ id: note.id, text: event.target.value });
-                              setEditNoteError('');
-                            }}
-                            className="block w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/15 sm:text-sm"
-                          />
-                          {editNoteError && <p role="alert" className="mt-1.5 text-[13px] font-medium text-accent-600">{editNoteError}</p>}
-                          <div className="mt-2 flex items-center justify-between gap-2">
-                            <span className="text-xs text-slate-400">{editingNote.text.length}/500</span>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                disabled={isSavingNoteEdit}
-                                onClick={function () {
-                                  setEditingNote(null);
-                                  setEditNoteError('');
-                                }}
-                                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                disabled={isSavingNoteEdit}
-                                onClick={saveNoteEdit}
-                                className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:opacity-60"
-                              >
-                                {isSavingNoteEdit ? 'Saving…' : 'Save'}
-                              </button>
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    }
-                    return (
-                      <li key={note.id} className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2.5">
-                        <div className="min-w-0 flex-1">
-                          <p className="whitespace-pre-line break-words text-sm text-slate-800">{note.text}</p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {note.authorName} · {formatDateTime(note.createdAt)}
-                            {note.editedAt && <span title={'Edited ' + formatDateTime(note.editedAt)}> · (edited)</span>}
-                          </p>
-                        </div>
-                        {canEdit && (
-                          <button
-                            type="button"
-                            title="Edit this note"
-                            aria-label={'Edit note by ' + note.authorName}
-                            onClick={function () {
-                              setEditingNote({ id: note.id, text: note.text });
-                              setEditNoteError('');
-                            }}
-                            className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
-                          >
-                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2.7 13.6l-.7 3.6a.7.7 0 00.8.8l3.6-.7L15.9 7.8 12.2 4.1 2.7 13.6zM17.7 5.9a1.3 1.3 0 000-1.8l-1.8-1.8a1.3 1.3 0 00-1.8 0l-1.2 1.2 3.6 3.6 1.2-1.2z" /></svg>
-                          </button>
-                        )}
-                        {isSuperadmin && !app.deletedAt && (
-                          <button
-                            type="button"
-                            title="Delete this note"
-                            aria-label={'Delete note by ' + note.authorName}
-                            onClick={function () {
-                              setConfirmAction(note.id);
-                            }}
-                            className="-mr-1 shrink-0 rounded-md p-1 text-slate-400 hover:bg-accent-50 hover:text-accent-600"
-                          >
-                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
-                          </button>
-                        )}
-                      </li>
-                    );
-                  })}
-              </ol>
-            )}
-          </Section>
+          <FeesSection application={app} admin={admin} isSuperadmin={isSuperadmin} onUpdated={setApplication} />
 
           <CertificatesSection application={app} isSuperadmin={isSuperadmin} onUpdated={setApplication} />
         </div>
@@ -839,21 +764,6 @@ function ApplicationDetailPage() {
           danger
           busy={isBusy}
           onConfirm={handleTrash}
-          onCancel={function () {
-            setConfirmAction('');
-          }}
-        />
-      )}
-      {confirmAction !== '' && confirmAction !== 'trash' && (
-        <ConfirmDialog
-          title="Delete this note?"
-          message="The note is removed for everyone. This cannot be undone (the activity log keeps a copy of its text)."
-          confirmLabel="Delete note"
-          danger
-          busy={isBusy}
-          onConfirm={function () {
-            handleDeleteNote(confirmAction);
-          }}
           onCancel={function () {
             setConfirmAction('');
           }}

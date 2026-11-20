@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import AdminLayout from "../components/AdminLayout";
 import StatusBadge from "../components/StatusBadge";
+import EducationBadge from "../components/EducationBadge";
 import { ReturningTag, ProgressSteps } from "../components/Tags";
 import { Alert } from "../components/AdminUi";
 import { useAdmin } from "../AdminAuth";
@@ -50,6 +51,15 @@ const VISITED_OPTIONS = [
   { value: "today", label: "Visited today" },
   { value: "yes", label: "Visited (any day)" },
   { value: "no", label: "Not visited" },
+];
+
+// HR notes with a follow-up date that is today or earlier and not done yet
+const FOLLOW_UP_OPTIONS = [{ value: "due", label: "Follow-up due" }];
+
+// Pursuing (still studying) / Passout (finished)
+const EDUCATION_OPTIONS = [
+  { value: "pursuing", label: "Pursuing" },
+  { value: "passout", label: "Passout" },
 ];
 
 const TYPE_OPTIONS = INTERNSHIP_TYPES.map(function (item) {
@@ -166,6 +176,8 @@ function ApplicationsPage() {
     visited: searchParams.get("visited") || "", // '', today, yes, no
     joined: searchParams.get("joined") || "", // '', today, yes, no
     applicant: searchParams.get("applicant") || "", // '', returning, new
+    education: searchParams.get("education") || "", // '', pursuing, passout
+    followUp: searchParams.get("followUp") || "", // '', due
     search: searchParams.get("search") || "",
     period: searchParams.get("period") || "", // '', today, yesterday, week, month, lastMonth, custom
     customFrom: searchParams.get("from") || "",
@@ -190,6 +202,8 @@ function ApplicationsPage() {
     visited: filters.visited,
     joined: filters.joined,
     applicant: filters.applicant,
+    education: filters.education,
+    followUp: filters.followUp,
     search: filters.search,
     from: dateRange.from,
     to: dateRange.to,
@@ -367,6 +381,8 @@ function ApplicationsPage() {
     filters.visited ||
     filters.joined ||
     filters.applicant ||
+    filters.education ||
+    filters.followUp ||
     filters.search ||
     filters.period;
   const rangeText = describeRange(dateRange);
@@ -408,6 +424,21 @@ function ApplicationsPage() {
                 >
                   {stats.joinedToday} joined today
                 </button>
+                {stats.followUpsDue > 0 && (
+                  <>
+                    {" · "}
+                    <button
+                      type="button"
+                      onClick={function () {
+                        updateFilter("followUp", "due");
+                      }}
+                      className="font-semibold text-amber-700 hover:underline"
+                      title="Show the students with a follow-up due today or earlier"
+                    >
+                      {stats.followUpsDue} follow-up{stats.followUpsDue === 1 ? "" : "s"} due
+                    </button>
+                  </>
+                )}
               </>
             )}
             {rangeText && (
@@ -663,7 +694,7 @@ function ApplicationsPage() {
         }
       >
         {pagination && (
-          <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
+          <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-slate-500">
             <span>
               {pagination.total === 0
                 ? "No applications found"
@@ -686,7 +717,27 @@ function ApplicationsPage() {
                 Clear filters
               </button>
             )}
-          </p>
+            <div className="w-full sm:ml-auto sm:w-48">
+              <FilterSelect
+                label="Follow-up"
+                value={filters.followUp}
+                options={FOLLOW_UP_OPTIONS}
+                onChange={function (value) {
+                  updateFilter("followUp", value);
+                }}
+              />
+            </div>
+            <div className="w-full sm:w-56">
+              <FilterSelect
+                label="Pursuing / Passout"
+                value={filters.education}
+                options={EDUCATION_OPTIONS}
+                onChange={function (value) {
+                  updateFilter("education", value);
+                }}
+              />
+            </div>
+          </div>
         )}
 
         {!data && isLoading && (
@@ -734,6 +785,7 @@ function ApplicationsPage() {
                     </th>
                     <th className="px-4 py-3 font-medium">Applied</th>
                     <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Education</th>
                     <th className="px-4 py-3 font-medium">Progress</th>
                   </tr>
                 </thead>
@@ -788,6 +840,9 @@ function ApplicationsPage() {
                           <StatusBadge status={item.status} />
                         </td>
                         <td className="px-4 py-3">
+                          <EducationBadge status={item.educationStatus} />
+                        </td>
+                        <td className="px-4 py-3">
                           <ProgressSteps visitedAt={item.visitedAt} joinedAt={item.joinedAt} />
                         </td>
                       </tr>
@@ -820,8 +875,9 @@ function ApplicationsPage() {
                             </p>
                           )}
                         </div>
-                        <div className="shrink-0">
+                        <div className="flex shrink-0 flex-col items-end gap-1.5">
                           <StatusBadge status={item.status} />
+                          <EducationBadge status={item.educationStatus} />
                         </div>
                       </div>
                       <p className="mt-3 text-sm font-medium text-slate-800">

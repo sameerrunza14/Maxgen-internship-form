@@ -13,6 +13,8 @@ import {
   INTERNSHIP_TYPES,
   REFERENCE_SOURCES,
   REFERENCE_DETAIL_LABELS,
+  EDUCATION_STATUSES,
+  FIRST_PASSOUT_YEAR_FOR_PASSOUT,
 } from '../../constants/formOptions';
 
 // HR and superadmin: correct a mistake in a saved application (wrong email, phone, name …).
@@ -166,10 +168,12 @@ function EditApplicationPage() {
             parentContactNumber: app.parentContactNumber,
             gender: app.gender,
             address: app.address,
+            educationStatus: app.educationStatus || 'pursuing',
             qualification: app.qualification,
             specialization: app.specialization,
             institute: app.institute,
-            semester: String(app.semester),
+            trainingCenter: app.trainingCenter || '',
+            semester: app.semester ? String(app.semester) : '',
             passoutYear: String(app.passoutYear),
             technologies: app.technologies,
             durations: app.durations,
@@ -192,7 +196,15 @@ function EditApplicationPage() {
   );
 
   function update(name, value) {
-    setValues({ ...values, [name]: value });
+    const next = { ...values, [name]: value };
+    // Passout students have no current semester; pursuing students have no training center
+    if (name === 'educationStatus' && value === 'passout') {
+      next.semester = '';
+    }
+    if (name === 'educationStatus' && value === 'pursuing') {
+      next.trainingCenter = '';
+    }
+    setValues(next);
     setErrors({ ...errors, [name]: '' });
   }
 
@@ -230,7 +242,7 @@ function EditApplicationPage() {
 
   const year = new Date().getFullYear();
   const yearOptions = [];
-  for (let y = year + 10; y >= year - 10; y--) {
+  for (let y = year + 10; y >= Math.min(year - 10, FIRST_PASSOUT_YEAR_FOR_PASSOUT); y--) {
     yearOptions.push(String(y));
   }
   const semesterOptions = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
@@ -294,6 +306,14 @@ function EditApplicationPage() {
 
           <Card title="Education">
             <div className="grid gap-4 sm:grid-cols-2">
+              <SelectField
+                label="Current status"
+                value={values.educationStatus}
+                options={EDUCATION_STATUSES}
+                error={errors.educationStatus}
+                onChange={function (v) { update('educationStatus', v); }}
+              />
+              <div className="hidden sm:block" />
               {text('qualification', 'Qualification', { maxLength: 80, list: 'qualification-options' })}
               <datalist id="qualification-options">
                 {QUALIFICATIONS.map(function (option) {
@@ -301,8 +321,10 @@ function EditApplicationPage() {
                 })}
               </datalist>
               {text('specialization', 'Specialization', { maxLength: 100 })}
-              {text('institute', 'Institute / training center', { maxLength: 150, wide: true })}
-              <SelectField label="Current semester" value={values.semester} options={semesterOptions} error={errors.semester} onChange={function (v) { update('semester', v); }} />
+              {text('institute', 'College / University', { maxLength: 150, wide: true })}
+              {values.educationStatus === 'passout'
+                ? text('trainingCenter', 'Training center / Company (optional)', { maxLength: 150, wide: true })
+                : <SelectField label="Current semester" value={values.semester} options={semesterOptions} error={errors.semester} onChange={function (v) { update('semester', v); }} />}
               <SelectField label="Passout year" value={values.passoutYear} options={yearOptions} error={errors.passoutYear} onChange={function (v) { update('passoutYear', v); }} />
             </div>
           </Card>

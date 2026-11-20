@@ -5,13 +5,16 @@ const QUESTIONS = [
   {
     question: 'Who can apply?',
     answer:
-      'Any student who is currently studying, in any course and any semester. The form asks for your current semester and passout year.',
+      'Students who are currently studying (any course, any semester) and students who have already finished (passout). ' +
+      'Choose Pursuing or Passout in the Education step.',
   },
   {
     question: 'Which documents do I need?',
     answer:
-      'Your Aadhaar or PAN card, your college ID card and your resume (PDF). A passport size photo is optional. ' +
-      'Each file can be up to 500 KB (photo 200 KB). Large phone photos are made smaller for you automatically.',
+      'Your Aadhaar or PAN card (you can add the front and back photos, they are joined into one PDF), your college ID card ' +
+      'and your resume (PDF). Passout students: the college ID card is optional, and you can add a course / internship ' +
+      'certificate. A passport size photo is optional. Each file can be up to 500 KB (photo 200 KB). Large photos and ' +
+      'large ID PDFs are made smaller for you automatically.',
   },
   {
     question: 'Is the internship online or offline?',
@@ -20,7 +23,9 @@ const QUESTIONS = [
   },
   {
     question: 'How long is the internship?',
-    answer: 'You choose the duration: 15 days, 1 month, 45 days, 3 months, 3 to 4 months, or 3 to 6 months.',
+    answer:
+      'Students who are still studying choose the duration: 15 days, 1 month, 45 days, 3 months, 3 to 4 months, or 3 to 6 months. ' +
+      'For passout students the internship is 3 to 6 months.',
   },
   {
     question: 'Which letters will I get?',

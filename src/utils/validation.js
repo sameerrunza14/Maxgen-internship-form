@@ -1,4 +1,4 @@
-import { DOCUMENTS } from '../constants/formOptions';
+import { DOCUMENTS, PASSOUT_DURATION, FIRST_PASSOUT_YEAR_FOR_PASSOUT, getDocumentsFor } from '../constants/formOptions';
 import { getFormConfig } from '../config/formConfig';
 
 const NAME_PATTERN = /^[A-Za-z][A-Za-z .'-]*$/;
@@ -8,19 +8,32 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 // Which fields belong to which step (index matches STEPS in formOptions.js)
 export const STEP_FIELDS = [
   ['fullName', 'email', 'contactNumber', 'parentContactNumber', 'gender', 'address'],
-  ['qualification', 'qualificationOther', 'specialization', 'institute', 'semester', 'passoutYear'],
+  ['educationStatus', 'qualification', 'qualificationOther', 'specialization', 'institute', 'trainingCenter', 'semester', 'passoutYear'],
   ['internshipType', 'technologies', 'durations', 'letters', 'location', 'mode', 'projectIncluded', 'referenceSource', 'referenceDetail'],
-  ['idProof', 'collegeId', 'resume', 'photo'],
+  ['idProof', 'collegeId', 'resume', 'photo', 'courseCertificate'],
   ['declarationAccepted'],
 ];
 
-function findDocument(name) {
-  for (let i = 0; i < DOCUMENTS.length; i++) {
-    if (DOCUMENTS[i].name === name) {
-      return DOCUMENTS[i];
+// The document's settings for this student (required / optional depends on pursuing or passout).
+// Returns null when the document is not on this student's form.
+function findDocument(name, educationStatus) {
+  const list = getDocumentsFor(educationStatus);
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].name === name) {
+      return list[i];
     }
   }
   return null;
+}
+
+// Is this a document field at all (for any student)?
+function isDocumentField(name) {
+  for (let i = 0; i < DOCUMENTS.length; i++) {
+    if (DOCUMENTS[i].name === name) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // Is this file type allowed for this document? Returns an error message or ''.
@@ -84,6 +97,9 @@ export function validateField(name, values, files) {
       if (value.length > 300) return 'Address must be 300 characters or less.';
       return '';
 
+    case 'educationStatus':
+      return value ? '' : 'Please choose Pursuing or Passout.';
+
     case 'qualification':
       return value ? '' : 'Please select your qualification.';
 
@@ -96,17 +112,31 @@ export function validateField(name, values, files) {
       return '';
 
     case 'institute':
-      if (!value) return 'Please enter your institute name.';
-      if (value.length > 150) return 'Institute name must be 150 characters or less.';
+      if (!value) return 'Please enter your college / university name.';
+      if (value.length > 150) return 'College / university name must be 150 characters or less.';
+      return '';
+
+    case 'trainingCenter':
+      // Only passout students see it, and it is optional
+      if (values.educationStatus === 'passout' && value.length > 150) {
+        return 'Training center / company name must be 150 characters or less.';
+      }
       return '';
 
     case 'semester':
+      if (values.educationStatus === 'passout') return ''; // passout students have no current semester
       return value ? '' : 'Please select your current semester.';
 
     case 'passoutYear': {
       if (!value) return 'Please select your passout year.';
       const currentYear = new Date().getFullYear();
       const year = Number(value);
+      if (values.educationStatus === 'passout') {
+        if (year < FIRST_PASSOUT_YEAR_FOR_PASSOUT || year > currentYear) {
+          return 'Passout year must be between ' + FIRST_PASSOUT_YEAR_FOR_PASSOUT + ' and ' + currentYear + '.';
+        }
+        return '';
+      }
       const yearsAhead = getFormConfig().passoutYearsAhead;
       if (year < currentYear || year > currentYear + yearsAhead) {
         return 'Passout year must be between ' + currentYear + ' and ' + (currentYear + yearsAhead) + '.';
@@ -121,7 +151,11 @@ export function validateField(name, values, files) {
       return '';
 
     case 'durations':
-      return values.durations.length > 0 ? '' : 'Please select at least one duration.';
+      if (values.durations.length === 0) return 'Please select at least one duration.';
+      if (values.educationStatus === 'passout' && (values.durations.length !== 1 || values.durations[0] !== PASSOUT_DURATION)) {
+        return 'For passout students the duration is 3 – 6 months only.';
+      }
+      return '';
 
     case 'letters':
       return values.letters.length > 0 ? '' : 'Please select at least one letter.';
@@ -152,12 +186,12 @@ export function validateField(name, values, files) {
 
     default: {
       // Document fields
-      const documentConfig = findDocument(name);
-      if (documentConfig) {
-        if (documentConfig.required && !files[name]) {
-          return `Please upload your ${documentConfig.label}.`;
-        }
+      if (!isDocumentField(name)) {
         return '';
+      }
+      const documentConfig = findDocument(name, values.educationStatus);
+      if (documentConfig && documentConfig.required && !files[name]) {
+        return `Please upload your ${documentConfig.label}.`;
       }
       return '';
     }

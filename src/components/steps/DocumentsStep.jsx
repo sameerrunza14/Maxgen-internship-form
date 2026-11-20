@@ -1,7 +1,9 @@
 import { FileUpload } from '../ui/FileUpload';
-import { DOCUMENTS } from '../../constants/formOptions';
+import { getDocumentsFor } from '../../constants/formOptions';
 
-function DocumentsStep({ files, errors, onFileSelect, onFileRemove, onFileError }) {
+function DocumentsStep({ educationStatus, files, errors, onFileSelect, onFileRemove, onFileError }) {
+  // Passout students: College ID is optional, and they can add a course / internship certificate
+  const documents = getDocumentsFor(educationStatus);
   return (
     <div>
       <div className="mb-6 flex items-start gap-3 rounded-xl border border-brand-100 bg-brand-50/70 px-4 py-3 text-[13px] leading-relaxed text-brand-800">
@@ -19,7 +21,7 @@ function DocumentsStep({ files, errors, onFileSelect, onFileRemove, onFileError 
       </div>
 
       <div className="grid gap-x-5 gap-y-6 sm:grid-cols-2">
-        {DOCUMENTS.map(function (config) {
+        {documents.map(function (config) {
           return (
             <FileUpload
               key={config.name}

@@ -8,9 +8,9 @@ import EducationStep from './steps/EducationStep';
 import InternshipStep from './steps/InternshipStep';
 import DocumentsStep from './steps/DocumentsStep';
 import ReviewStep from './steps/ReviewStep';
-import { STEPS, getPassoutYearOptions } from '../constants/formOptions';
+import { STEPS, PASSOUT_DURATION, DOCUMENTS, getPassoutYearOptions } from '../constants/formOptions';
 import { validateField, validateStep, findFirstStepWithError } from '../utils/validation';
-import { submitApplication } from '../services/applicationApi';
+import { submitApplication, makeSubmissionKey } from '../services/applicationApi';
 import { IS_DEMO_MODE } from '../config/demoMode';
 import { getFormConfig, loadFormConfig } from '../config/formConfig';
 
@@ -28,7 +28,7 @@ function cleanAnswersForConfig(values, config) {
     .slice(0, config.maxTechnologies);
 
   let passoutYear = values.passoutYear;
-  const yearOptions = getPassoutYearOptions(config.passoutYearsAhead);
+  const yearOptions = getPassoutYearOptions(config.passoutYearsAhead, values.educationStatus);
   let isYearAllowed = false;
   for (let i = 0; i < yearOptions.length; i++) {
     if (yearOptions[i].value === passoutYear) {
@@ -46,6 +46,10 @@ function cleanAnswersForConfig(values, config) {
 }
 
 const DRAFT_KEY = 'maxgen-internship-draft';
+// The furthest step the student reached, so they can go back there after a refresh
+const DRAFT_STEP_KEY = 'maxgen-internship-draft-step';
+// Documents step: files cannot be saved in the browser, so a restored draft goes back here at most
+const DOCUMENTS_STEP = 3;
 
 const EMPTY_VALUES = {
   // Personal information
@@ -56,11 +60,13 @@ const EMPTY_VALUES = {
   gender: '',
   address: '',
   // Education background
+  educationStatus: '', // 'pursuing' (still studying) or 'passout' (finished)
   qualification: '',
   qualificationOther: '',
   specialization: '',
-  institute: '',
-  semester: '',
+  institute: '', // college / university name
+  trainingCenter: '', // only passout: training center / company name (optional)
+  semester: '', // only pursuing
   passoutYear: '',
   // Internship details
   internshipType: '',
@@ -76,7 +82,10 @@ const EMPTY_VALUES = {
   declarationAccepted: false,
 };
 
-const EMPTY_FILES = { idProof: null, collegeId: null, resume: null, photo: null };
+const EMPTY_FILES = {};
+for (let i = 0; i < DOCUMENTS.length; i++) {
+  EMPTY_FILES[DOCUMENTS[i].name] = null;
+}
 
 // Text answers are saved in the browser so a refresh doesn't lose them. Files cannot be saved.
 function loadDraft() {
@@ -95,8 +104,11 @@ function loadDraft() {
     if (!Array.isArray(values.letters)) {
       values.letters = [];
     }
+    if (values.educationStatus !== 'pursuing' && values.educationStatus !== 'passout') {
+      values.educationStatus = '';
+    }
     // A passout year saved earlier may now be outside the allowed years: ask again
-    const allowedYears = getPassoutYearOptions();
+    const allowedYears = getPassoutYearOptions(undefined, values.educationStatus);
     let isYearAllowed = false;
     for (let i = 0; i < allowedYears.length; i++) {
       if (allowedYears[i].value === values.passoutYear) {
@@ -119,6 +131,10 @@ function loadDraft() {
     if (values.durations.length === 0 && typeof parsed.duration === 'string' && parsed.duration) {
       values.durations = [parsed.duration];
     }
+    if (values.educationStatus === 'passout') {
+      values.durations = [PASSOUT_DURATION];
+      values.semester = '';
+    }
     values.declarationAccepted = false;
     return values;
   } catch {
@@ -137,8 +153,35 @@ function saveDraft(values) {
 function clearDraft() {
   try {
     window.localStorage.removeItem(DRAFT_KEY);
+    window.localStorage.removeItem(DRAFT_STEP_KEY);
   } catch {
     // ignore
+  }
+}
+
+// Only moves forward: going back to step 2 after a refresh keeps "reached step 4"
+function saveDraftStep(stepIndex) {
+  try {
+    const saved = Number(window.localStorage.getItem(DRAFT_STEP_KEY)) || 0;
+    if (stepIndex <= saved) {
+      return;
+    }
+    window.localStorage.setItem(DRAFT_STEP_KEY, String(stepIndex));
+  } catch {
+    // ignore
+  }
+}
+
+// The step the student reached last time (0 = none). Never past Documents: files must be uploaded again.
+function loadDraftStep() {
+  try {
+    const step = Number(window.localStorage.getItem(DRAFT_STEP_KEY));
+    if (!Number.isInteger(step) || step < 1) {
+      return 0;
+    }
+    return Math.min(step, DOCUMENTS_STEP);
+  } catch {
+    return 0;
   }
 }
 
@@ -165,6 +208,8 @@ function ApplicationPage() {
   const [draftRestored] = useState(function () {
     return loadDraft() !== null;
   });
+  // Where the student stopped last time (e.g. 3 = Documents), for the "Continue where you left off" button
+  const [savedStep] = useState(loadDraftStep);
 
   // Settings from the admin panel (open / closed, technologies …). Starts with the built-in values.
   const [formConfig, setFormConfig] = useState(getFormConfig());
@@ -177,6 +222,15 @@ function ApplicationPage() {
       });
     });
   }, []);
+
+  // True while we wait for the sleeping server to wake up (shows a "please wait" message)
+  const [isWaitingForServer, setIsWaitingForServer] = useState(false);
+  // One key per application: if the form has to be sent again, the server does not save it twice.
+  // A new key is made only after a successful submit or "Start fresh".
+  const submissionKeyRef = useRef(null);
+  if (submissionKeyRef.current === null) {
+    submissionKeyRef.current = makeSubmissionKey();
+  }
 
   const cardRef = useRef(null);
   const headingRef = useRef(null);
@@ -236,10 +290,48 @@ function ApplicationPage() {
       if (name === 'qualification' && value !== 'Other') {
         next.qualificationOther = '';
       }
+      // Pursuing <-> Passout: the years, semester and durations are different, so ask again
+      if (name === 'educationStatus' && value !== previous.educationStatus) {
+        next.passoutYear = '';
+        if (value === 'passout') {
+          next.semester = '';
+          next.durations = [PASSOUT_DURATION];
+        } else {
+          next.trainingCenter = '';
+          next.durations = [];
+        }
+      }
+      // Passout students always have the 3 – 6 months duration
+      if (name === 'durations' && next.educationStatus === 'passout') {
+        next.durations = [PASSOUT_DURATION];
+      }
       return next;
     });
     setFieldError(name, '');
     setSubmitError('');
+
+    // A pursuing student does not upload the passout-only documents (course certificate)
+    if (name === 'educationStatus' && value !== 'passout') {
+      setFiles(function (previous) {
+        const next = { ...previous };
+        for (let i = 0; i < DOCUMENTS.length; i++) {
+          if (DOCUMENTS[i].onlyPassout) {
+            next[DOCUMENTS[i].name] = null;
+          }
+        }
+        return next;
+      });
+    }
+    if (name === 'educationStatus') {
+      setErrors(function (previous) {
+        const next = { ...previous };
+        delete next.passoutYear;
+        delete next.semester;
+        delete next.durations;
+        delete next.collegeId;
+        return next;
+      });
+    }
   }
 
   function scrollToFirstError() {
@@ -289,6 +381,30 @@ function ApplicationPage() {
     setCurrentStep(stepIndex);
     if (stepIndex > highestStep) {
       setHighestStep(stepIndex);
+      saveDraftStep(stepIndex);
+    }
+  }
+
+  // "Continue where you left off": checks the earlier steps one by one and goes to the saved step.
+  // If an earlier step has a missing answer, it stops there and shows what to fill.
+  function continueFromSavedStep() {
+    for (let step = currentStep; step < savedStep; step++) {
+      const stepErrors = validateStep(step, values, files);
+      if (Object.keys(stepErrors).length > 0) {
+        setErrors(function (previous) {
+          return { ...previous, ...stepErrors };
+        });
+        setCurrentStep(step);
+        if (step > highestStep) {
+          setHighestStep(step);
+        }
+        scrollToFirstError();
+        return;
+      }
+    }
+    setCurrentStep(savedStep);
+    if (savedStep > highestStep) {
+      setHighestStep(savedStep);
     }
   }
 
@@ -341,9 +457,13 @@ function ApplicationPage() {
     }
 
     setIsSubmitting(true);
+    setIsWaitingForServer(false);
     setSubmitError('');
     try {
-      const response = await submitApplication(values, files);
+      const response = await submitApplication(values, files, submissionKeyRef.current, function () {
+        setIsWaitingForServer(true);
+      });
+      submissionKeyRef.current = makeSubmissionKey();
       clearDraft();
       setResult({ referenceNo: response.referenceNo, fullName: values.fullName, email: values.email });
     } catch (error) {
@@ -355,14 +475,16 @@ function ApplicationPage() {
         }
         scrollToFirstError();
       }
-      setSubmitError(error.message || 'Something went wrong. Please check your internet connection and try again.');
+      setSubmitError(error.message || 'Something went wrong. Please try again in a minute.');
     } finally {
       setIsSubmitting(false);
+      setIsWaitingForServer(false);
     }
   }
 
   function resetForm() {
     clearDraft();
+    submissionKeyRef.current = makeSubmissionKey();
     setValues(EMPTY_VALUES);
     setFiles(EMPTY_FILES);
     setErrors({});
@@ -389,6 +511,7 @@ function ApplicationPage() {
   if (currentStep === 3) {
     stepContent = (
       <DocumentsStep
+        educationStatus={values.educationStatus}
         files={files}
         errors={errors}
         onFileSelect={handleFileSelect}
@@ -450,8 +573,13 @@ function ApplicationPage() {
                       Aadhaar or PAN card
                     </li>
                     <li className="flex gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500" />
-                      College ID card
+                      <span
+                        className={
+                          'mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ' +
+                          (values.educationStatus === 'passout' ? 'bg-slate-300' : 'bg-accent-500')
+                        }
+                      />
+                      {values.educationStatus === 'passout' ? 'College ID card (optional)' : 'College ID card'}
                     </li>
                     <li className="flex gap-2">
                       <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500" />
@@ -461,6 +589,12 @@ function ApplicationPage() {
                       <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
                       Passport photo (optional)
                     </li>
+                    {values.educationStatus === 'passout' && (
+                      <li className="flex gap-2">
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
+                        Course / internship certificate (optional)
+                      </li>
+                    )}
                   </ul>
                   <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
                     Up to 500 KB per file (photo 200 KB)
@@ -488,19 +622,52 @@ function ApplicationPage() {
                   </div>
 
                   {draftRestored && currentStep === 0 && hasAnyValue(values) && (
-                    <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3.5 py-2.5 text-[13px] text-amber-800 ring-1 ring-amber-200">
-                      <span>We restored the answers you entered earlier on this device.</span>
-                      <button
-                        type="button"
-                        onClick={resetForm}
-                        className="font-semibold underline underline-offset-2 hover:text-amber-900"
-                      >
-                        Start fresh
-                      </button>
+                    <div className="mt-5 rounded-lg bg-amber-50 px-3.5 py-3 text-[13px] leading-relaxed text-amber-900 ring-1 ring-amber-200">
+                      <p className="font-semibold">Your answers are saved. No need to start fresh.</p>
+                      <p className="mt-1 text-amber-800">
+                        If you opened another page or refreshed while filling the form, your answers are still here.
+                        {savedStep > 0
+                          ? ' Continue from where you left off, or press Continue to check each step.'
+                          : ' Press Continue to go on from where you left off.'}{' '}
+                        Documents must be uploaded again, because files cannot be saved on this device.
+                      </p>
+                      <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
+                        {savedStep > 0 && (
+                          <button
+                            type="button"
+                            onClick={continueFromSavedStep}
+                            className="rounded-lg bg-amber-600 px-3 py-1.5 text-[13px] font-semibold text-white transition hover:bg-amber-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500/30"
+                          >
+                            Continue from Step {savedStep + 1}: {STEPS[savedStep].short} →
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={resetForm}
+                          className="font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-900"
+                        >
+                          Start fresh (clear all answers)
+                        </button>
+                      </div>
                     </div>
                   )}
 
                   <div className="mt-7">{stepContent}</div>
+
+                  {isWaitingForServer && (
+                    <div role="status" className="mt-6 flex items-start gap-3 rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-800">
+                      <svg className="mt-0.5 h-4 w-4 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+                        <path fill="currentColor" className="opacity-75" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                      <span>
+                        <span className="font-semibold">Connecting to our server, please wait…</span>
+                        <br />
+                        This can take up to a minute. Please do not close or refresh this page. Your application will be
+                        sent automatically.
+                      </span>
+                    </div>
+                  )}
 
                   {submitError && (
                     <div role="alert" className="mt-6 rounded-lg border border-accent-100 bg-accent-50 px-4 py-3 text-sm text-accent-600">
@@ -550,7 +717,7 @@ function ApplicationPage() {
                         <path fill="currentColor" className="opacity-75" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                       </svg>
                     )}
-                    {isSubmitting ? 'Submitting…' : isLastStep ? 'Submit Application' : 'Continue'}
+                    {isSubmitting ? (isWaitingForServer ? 'Please wait…' : 'Submitting…') : isLastStep ? 'Submit Application' : 'Continue'}
                     {!isSubmitting && !isLastStep && (
                       <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                         <path

@@ -6,6 +6,22 @@ export const GENDERS = [
   { value: 'Female', label: 'Female' },
 ];
 
+// First question of the Education step. Keep the same values as the backend (EDUCATION_STATUSES).
+export const EDUCATION_STATUSES = [
+  { value: 'pursuing', label: 'Pursuing', description: 'I am still studying' },
+  { value: 'passout', label: 'Passout', description: 'I have finished my studies' },
+];
+
+export function educationStatusLabel(status) {
+  return status === 'passout' ? 'Passout' : 'Pursuing';
+}
+
+// Passout students can only choose this duration (same as the backend)
+export const PASSOUT_DURATION = '3 to 6 Months';
+
+// Passout students choose a passout year from this year down to this one
+export const FIRST_PASSOUT_YEAR_FOR_PASSOUT = 2010;
+
 export const QUALIFICATIONS = [
   'BCA',
   'MCA',
@@ -101,6 +117,10 @@ export const REFERENCE_DETAIL_LABELS = {
 // Every document the applicant uploads. The key is the field name sent to the backend.
 // maxSizeKB: the largest file allowed (keep the same as backend/src/constants/applicationOptions.js).
 // Photos that are too large are made smaller automatically in the browser before upload.
+// twoPhotos: true  -> a "front" and a "back" photo can be added; both are joined into one PDF.
+// shrinkPdf: true  -> a PDF that is too large is made smaller in the browser (not for the resume:
+//                     its text must stay searchable).
+// requiredForPassout: overrides `required` for passout students. onlyPassout: shown only to passout students.
 export const DOCUMENTS = [
   {
     name: 'idProof',
@@ -110,15 +130,19 @@ export const DOCUMENTS = [
     allowedTypes: ['application/pdf', 'image/jpeg', 'image/png'],
     allowedLabel: 'PDF, JPG or PNG',
     maxSizeKB: 500,
+    twoPhotos: true,
+    shrinkPdf: true,
   },
   {
     name: 'collegeId',
     label: 'College ID Card',
     required: true,
+    requiredForPassout: false,
     accept: '.pdf,.jpg,.jpeg,.png',
     allowedTypes: ['application/pdf', 'image/jpeg', 'image/png'],
     allowedLabel: 'PDF, JPG or PNG',
     maxSizeKB: 500,
+    shrinkPdf: true,
   },
   {
     name: 'resume',
@@ -138,7 +162,36 @@ export const DOCUMENTS = [
     allowedLabel: 'JPG or PNG',
     maxSizeKB: 200,
   },
+  {
+    name: 'courseCertificate',
+    label: 'Course / Internship Certificate',
+    required: false,
+    onlyPassout: true,
+    accept: '.pdf,.jpg,.jpeg,.png',
+    allowedTypes: ['application/pdf', 'image/jpeg', 'image/png'],
+    allowedLabel: 'PDF, JPG or PNG',
+    maxSizeKB: 500,
+    shrinkPdf: true,
+  },
 ];
+
+// The documents this student sees, with `required` already set for them ('pursuing' / 'passout')
+export function getDocumentsFor(educationStatus) {
+  const isPassout = educationStatus === 'passout';
+  const list = [];
+  for (let i = 0; i < DOCUMENTS.length; i++) {
+    const config = DOCUMENTS[i];
+    if (config.onlyPassout && !isPassout) {
+      continue;
+    }
+    let required = config.required;
+    if (isPassout && config.requiredForPassout !== undefined) {
+      required = config.requiredForPassout;
+    }
+    list.push({ ...config, required: required });
+  }
+  return list;
+}
 
 export const DECLARATION_TEXT =
   "I hereby declare that the information provided above is true and correct to the best of my knowledge. " +
@@ -149,7 +202,7 @@ export const DECLARATION_TEXT =
 // The 5 steps of the form
 export const STEPS = [
   { title: 'Personal Information', short: 'Personal', description: 'Tell us who you are and how to reach you.' },
-  { title: 'Education Background', short: 'Education', description: 'Your current or most recent education.' },
+  { title: 'Education Background', short: 'Education', description: 'Are you still studying, or have you finished?' },
   { title: 'Internship Details', short: 'Internship', description: 'Choose the program that fits you.' },
   { title: 'Documents', short: 'Documents', description: 'Upload clear copies. Large photos are resized for you.' },
   { title: 'Review & Submit', short: 'Review', description: 'Check your details and accept the declaration.' },
@@ -168,12 +221,19 @@ export function getSemesterOptions() {
 // Passout year: from this year up to this many years ahead (built-in value; the admin Settings page can change it)
 export const PASSOUT_YEARS_AHEAD = 5;
 
-// Passout year options: this year and the next few years (e.g. 2026 to 2031). Past years are never shown.
-// The list moves forward by itself every new year.
-export function getPassoutYearOptions(yearsAhead) {
-  const ahead = yearsAhead || PASSOUT_YEARS_AHEAD;
+// Passout year options. The list moves forward by itself every new year.
+//   pursuing: this year and the next few years (e.g. 2026 to 2031)
+//   passout:  this year back to 2010, newest first (e.g. 2026, 2025 ... 2010)
+export function getPassoutYearOptions(yearsAhead, educationStatus) {
   const currentYear = new Date().getFullYear();
   const options = [];
+  if (educationStatus === 'passout') {
+    for (let year = currentYear; year >= FIRST_PASSOUT_YEAR_FOR_PASSOUT; year--) {
+      options.push({ value: String(year), label: String(year) });
+    }
+    return options;
+  }
+  const ahead = yearsAhead || PASSOUT_YEARS_AHEAD;
   for (let year = currentYear; year <= currentYear + ahead; year++) {
     options.push({ value: String(year), label: String(year) });
   }

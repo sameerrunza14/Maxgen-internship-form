@@ -3,6 +3,7 @@ import { ChoiceCards } from '../ui/ChoiceCards';
 import { getFormConfig } from '../../config/formConfig';
 import {
   DURATIONS,
+  PASSOUT_DURATION,
   LETTER_TYPES,
   YES_NO,
   LOCATIONS,
@@ -18,6 +19,18 @@ function InternshipStep({ values, errors, onChange, onValueChange, onBlur }) {
   // Technologies and the limit come from the admin Settings page
   const config = getFormConfig();
   const maxTechnologies = config.maxTechnologies;
+
+  // Passout students can only do the 3 – 6 months internship (it is selected for them)
+  const isPassout = values.educationStatus === 'passout';
+  let durationOptions = DURATIONS;
+  if (isPassout) {
+    durationOptions = [];
+    for (let i = 0; i < DURATIONS.length; i++) {
+      if (DURATIONS[i].value === PASSOUT_DURATION) {
+        durationOptions.push(DURATIONS[i]);
+      }
+    }
+  }
 
   return (
     <div className="space-y-7 sm:space-y-8">
@@ -60,9 +73,9 @@ function InternshipStep({ values, errors, onChange, onValueChange, onBlur }) {
         required
         compact
         hideDescriptionOnMobile
-        hint="Select one or more durations that suit you."
+        hint={isPassout ? 'For passout students the internship is 3 – 6 months.' : 'Select one or more durations that suit you.'}
         gridClass="grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3"
-        options={DURATIONS}
+        options={durationOptions}
         value={values.durations}
         error={errors.durations}
         onChange={onValueChange}

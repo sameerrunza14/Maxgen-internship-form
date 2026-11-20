@@ -235,12 +235,80 @@ export async function downloadExcel(filters) {
   saveBlob(blob, 'Maxgen internship applications ' + datePart + '.xlsx');
 }
 
-export async function addNote(id, text) {
+// note = { text, type, followUpDate ('YYYY-MM-DD' or '') }, photos = up to 3 File objects (JPG / PNG)
+export async function addNote(id, note, photos) {
+  const formData = new FormData();
+  formData.append('text', note.text);
+  formData.append('type', note.type);
+  formData.append('followUpDate', note.followUpDate || '');
+  for (let i = 0; i < photos.length; i++) {
+    formData.append('photos', photos[i]);
+  }
   const result = await request('/api/admin/applications/' + encodeURIComponent(id) + '/notes', {
     method: 'POST',
-    body: { text: text },
+    body: formData,
   });
   return result.data.application;
+}
+
+// Follow-up of a note done (true) or open again (false)
+export async function setFollowUpDone(applicationId, noteId, done) {
+  const result = await request(
+    '/api/admin/applications/' + encodeURIComponent(applicationId) + '/notes/' + encodeURIComponent(noteId) + '/follow-up',
+    { method: 'PATCH', body: { done: done } }
+  );
+  return result.data.application;
+}
+
+// A note photo as a Blob (to show it; the photo needs the sign-in, so <img src> cannot load it directly)
+export async function getNotePhoto(applicationId, photoId) {
+  return request(
+    '/api/admin/applications/' + encodeURIComponent(applicationId) + '/note-photos/' + encodeURIComponent(photoId),
+    { returnBlob: true }
+  );
+}
+
+// ---------- Fees tracker ----------
+
+// totalFee: number or '' (no total fee)
+export async function updateTotalFee(applicationId, totalFee) {
+  const result = await request('/api/admin/applications/' + encodeURIComponent(applicationId) + '/fee', {
+    method: 'PATCH',
+    body: { totalFee: totalFee },
+  });
+  return { application: result.data.application, message: result.message };
+}
+
+// payment = { amount, method, paidOn, remark }, receipt = File or null
+export async function addPayment(applicationId, payment, receipt) {
+  const formData = new FormData();
+  formData.append('amount', payment.amount);
+  formData.append('method', payment.method);
+  formData.append('paidOn', payment.paidOn);
+  formData.append('remark', payment.remark);
+  if (receipt) {
+    formData.append('receipt', receipt);
+  }
+  const result = await request('/api/admin/applications/' + encodeURIComponent(applicationId) + '/payments', {
+    method: 'POST',
+    body: formData,
+  });
+  return { application: result.data.application, message: result.message };
+}
+
+export async function deletePayment(applicationId, paymentId) {
+  const result = await request(
+    '/api/admin/applications/' + encodeURIComponent(applicationId) + '/payments/' + encodeURIComponent(paymentId),
+    { method: 'DELETE' }
+  );
+  return result.data.application;
+}
+
+export async function getReceipt(applicationId, paymentId) {
+  return request(
+    '/api/admin/applications/' + encodeURIComponent(applicationId) + '/payments/' + encodeURIComponent(paymentId) + '/receipt',
+    { returnBlob: true }
+  );
 }
 
 export async function changePassword(currentPassword, newPassword) {
@@ -281,12 +349,15 @@ export async function updateVisited(id, visited) {
 }
 
 // Ticks / unticks "Student joined the internship". Returns the updated application.
-export async function updateJoined(id, joined) {
+// Marks the student as joined (or removes the mark). Joining also accepts the application,
+// and sendEmail = true sends the "Welcome, you have joined" email.
+// joiningDate: 'YYYY-MM-DD' (shown in the email). Returns { application, emailResult, message }
+export async function updateJoined(id, joined, sendEmail, joiningDate) {
   const result = await request('/api/admin/applications/' + encodeURIComponent(id) + '/joined', {
     method: 'PATCH',
-    body: { joined: joined },
+    body: { joined: joined, sendEmail: sendEmail === true, joiningDate: joiningDate || '' },
   });
-  return result.data.application;
+  return { application: result.data.application, emailResult: result.data.emailResult, message: result.message };
 }
 
 // Opens a document in a new tab (view) or saves it (download).
@@ -431,10 +502,11 @@ export async function editApplication(id, values) {
 }
 
 // HR: own notes only; superadmin: any note. Returns the updated application.
-export async function editNote(applicationId, noteId, text) {
+// note = { text, type, followUpDate }
+export async function editNote(applicationId, noteId, note) {
   const result = await request(
     '/api/admin/applications/' + encodeURIComponent(applicationId) + '/notes/' + encodeURIComponent(noteId),
-    { method: 'PATCH', body: { text: text } }
+    { method: 'PATCH', body: { text: note.text, type: note.type, followUpDate: note.followUpDate || '' } }
   );
   return result.data.application;
 }
