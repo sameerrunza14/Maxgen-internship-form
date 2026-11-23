@@ -79,6 +79,11 @@ export const LETTER_TYPES = [
 
 export const LOCATIONS = [
   { value: 'Ahmedabad', label: 'Ahmedabad', description: 'Gujarat' },
+];
+
+// No longer on the form (keep the same as OLD_LOCATIONS in the backend).
+// Older applications may still have them: the admin panel still shows and filters them.
+export const OLD_LOCATIONS = [
   { value: 'Pune', label: 'Pune', description: 'Maharashtra' },
   { value: 'Mumbai', label: 'Mumbai', description: 'Maharashtra' },
 ];
@@ -118,8 +123,8 @@ export const REFERENCE_DETAIL_LABELS = {
 // maxSizeKB: the largest file allowed (keep the same as backend/src/constants/applicationOptions.js).
 // Photos that are too large are made smaller automatically in the browser before upload.
 // twoPhotos: true  -> a "front" and a "back" photo can be added; both are joined into one PDF.
-// shrinkPdf: true  -> a PDF that is too large is made smaller in the browser (not for the resume:
-//                     its text must stay searchable).
+// shrinkPdf: true  -> a PDF that is too large is made smaller in the browser. First without losing quality
+//                     (the text stays selectable); if still too big, the pages become compressed pictures.
 // requiredForPassout: overrides `required` for passout students. onlyPassout: shown only to passout students.
 export const DOCUMENTS = [
   {
@@ -152,6 +157,7 @@ export const DOCUMENTS = [
     allowedTypes: ['application/pdf'],
     allowedLabel: 'PDF',
     maxSizeKB: 500,
+    shrinkPdf: true,
   },
   {
     name: 'photo',

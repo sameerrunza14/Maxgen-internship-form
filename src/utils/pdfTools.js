@@ -127,6 +127,9 @@ async function renderPagesAsJpegs(pdfDocument, maxSide, quality) {
     const blob = await new Promise(function (resolve) {
       canvas.toBlob(resolve, 'image/jpeg', quality);
     });
+    // Give the page's memory back to the phone straight away
+    canvas.width = 0;
+    canvas.height = 0;
     if (!blob) {
       throw new Error('Could not read this PDF.');
     }
@@ -167,6 +170,21 @@ export async function shrinkPdf(file, maxBytes) {
     return { error: 'This PDF could not be opened. Please upload another PDF or a photo.' };
   }
 
+  // Step 1: save the same PDF again in a more compact way (fonts, text and quality stay the same,
+  // the text stays selectable). Often enough for a resume made in Word / Canva.
+  try {
+    const compact = await PDFDocument.load(await readBytes(file), { ignoreEncryption: true, updateMetadata: false });
+    // A PDF with restrictions (owner password) would be damaged by saving it again this way: skip it
+    const compactBytes = compact.isEncrypted ? null : await compact.save({ useObjectStreams: true });
+    if (compactBytes && compactBytes.length <= maxBytes) {
+      loadingTask.destroy();
+      return { file: toPdfFile(compactBytes, baseName(file.name) + '.pdf') };
+    }
+  } catch {
+    // could not re-save it this way: go on with step 2
+  }
+
+  // Step 2: every page becomes a compressed picture (always works, but the text is no longer selectable)
   try {
     if (source.numPages > MAX_PAGES_TO_SHRINK) {
       return {

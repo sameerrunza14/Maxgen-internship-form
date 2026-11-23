@@ -9,6 +9,7 @@ import {
   DURATIONS,
   LETTER_TYPES,
   LOCATIONS,
+  OLD_LOCATIONS,
   INTERNSHIP_MODES,
   INTERNSHIP_TYPES,
   REFERENCE_SOURCES,
@@ -246,6 +247,14 @@ function EditApplicationPage() {
     yearOptions.push(String(y));
   }
   const semesterOptions = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+
+  // Locations: the office on the form now, plus an old one (Pune / Mumbai) if this application has it
+  const locationOptions = LOCATIONS.slice();
+  for (let i = 0; i < OLD_LOCATIONS.length; i++) {
+    if (values && values.location === OLD_LOCATIONS[i].value) {
+      locationOptions.push(OLD_LOCATIONS[i]);
+    }
+  }
   const detailConfig = values ? REFERENCE_DETAIL_LABELS[values.referenceSource] : null;
 
   function text(name, label, props) {
@@ -335,7 +344,7 @@ function EditApplicationPage() {
               <div className="hidden sm:block" />
               <CheckList label="Technologies" options={technologyOptions} values={values.technologies} error={errors.technologies} onChange={function (v) { update('technologies', v); }} />
               <CheckList label="Durations" options={DURATIONS.map(optionValue)} values={values.durations} error={errors.durations} onChange={function (v) { update('durations', v); }} />
-              <SelectField label="Location" value={values.location} options={LOCATIONS} error={errors.location} onChange={function (v) { update('location', v); }} />
+              <SelectField label="Location" value={values.location} options={locationOptions} error={errors.location} onChange={function (v) { update('location', v); }} />
               <SelectField label="Mode" value={values.mode} options={INTERNSHIP_MODES} error={errors.mode} onChange={function (v) { update('mode', v); }} />
               <SelectField
                 label="Project included"

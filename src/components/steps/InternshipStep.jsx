@@ -102,7 +102,7 @@ function InternshipStep({ values, errors, onChange, onValueChange, onBlur }) {
         compact
         hideDescriptionOnMobile
         centerOnMobile
-        gridClass="grid-cols-3 gap-2.5 sm:gap-3"
+        gridClass="grid-cols-1 gap-2.5 sm:max-w-xs sm:gap-3"
         options={LOCATIONS}
         value={values.location}
         error={errors.location}

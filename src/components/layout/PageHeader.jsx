@@ -147,7 +147,7 @@ export function Hero({ selectedTechnologies }) {
           Learn by building real software at Maxgen.
         </h1>
         <p className="mt-2 max-w-lg text-sm sm:max-w-2xl leading-relaxed text-brand-100 sm:text-[15px]">
-          14 technologies · Online, offline or hybrid · Ahmedabad, Pune &amp; Mumbai.
+          14 technologies · Online, offline or hybrid · Ahmedabad.
           <span className="hidden sm:inline"> Apply below in about 5 minutes.</span>
         </p>
         <ChosenTechnologies selectedTechnologies={selectedTechnologies} />

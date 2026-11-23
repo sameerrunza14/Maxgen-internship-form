@@ -8,9 +8,17 @@ import EducationStep from './steps/EducationStep';
 import InternshipStep from './steps/InternshipStep';
 import DocumentsStep from './steps/DocumentsStep';
 import ReviewStep from './steps/ReviewStep';
-import { STEPS, PASSOUT_DURATION, DOCUMENTS, getPassoutYearOptions } from '../constants/formOptions';
+import { STEPS, PASSOUT_DURATION, DOCUMENTS, LOCATIONS, getPassoutYearOptions, getDocumentsFor } from '../constants/formOptions';
 import { validateField, validateStep, findFirstStepWithError } from '../utils/validation';
 import { submitApplication, makeSubmissionKey } from '../services/applicationApi';
+import {
+  saveDraftFile,
+  removeDraftFile,
+  clearDraftFiles,
+  loadDraftFiles,
+  clearPickingFile,
+  takeReloadedWhilePicking,
+} from '../utils/fileDraft';
 import { IS_DEMO_MODE } from '../config/demoMode';
 import { getFormConfig, loadFormConfig } from '../config/formConfig';
 
@@ -74,7 +82,8 @@ const EMPTY_VALUES = {
   durations: [],
   letters: [],
   projectIncluded: '',
-  location: '',
+  // Only one office now (Ahmedabad), so it is chosen already
+  location: LOCATIONS.length === 1 ? LOCATIONS[0].value : '',
   mode: '',
   referenceSource: '',
   referenceDetail: '',
@@ -134,6 +143,16 @@ function loadDraft() {
     if (values.educationStatus === 'passout') {
       values.durations = [PASSOUT_DURATION];
       values.semester = '';
+    }
+    // A location saved earlier that is no longer on the form (Pune, Mumbai): use the office we have now
+    let isKnownLocation = false;
+    for (let i = 0; i < LOCATIONS.length; i++) {
+      if (LOCATIONS[i].value === values.location) {
+        isKnownLocation = true;
+      }
+    }
+    if (!isKnownLocation) {
+      values.location = LOCATIONS.length === 1 ? LOCATIONS[0].value : '';
     }
     values.declarationAccepted = false;
     return values;
@@ -210,6 +229,60 @@ function ApplicationPage() {
   });
   // Where the student stopped last time (e.g. 3 = Documents), for the "Continue where you left off" button
   const [savedStep] = useState(loadDraftStep);
+  // How many documents came back after a reload (they are kept in the browser, see utils/fileDraft.js)
+  const [restoredFileCount, setRestoredFileCount] = useState(0);
+  // True when the phone reloaded the page while the student was choosing a file (shown on the Documents step)
+  const [reloadedWhilePicking, setReloadedWhilePicking] = useState(false);
+
+  // After a reload: bring back the documents chosen earlier. If the phone reloaded the page while the
+  // student was in the gallery / camera, go straight back to where they were.
+  useEffect(function () {
+    const wasPicking = takeReloadedWhilePicking();
+    if (!draftRestored) {
+      clearDraftFiles(); // old files from a finished or cleared form
+      return;
+    }
+    loadDraftFiles().then(function (savedFiles) {
+      // Only the documents on this student's form (a pursuing student has no course certificate)
+      const allowed = getDocumentsFor(values.educationStatus);
+      const restored = { ...EMPTY_FILES };
+      let count = 0;
+      for (let i = 0; i < allowed.length; i++) {
+        const name = allowed[i].name;
+        if (savedFiles[name]) {
+          restored[name] = savedFiles[name];
+          count++;
+        }
+      }
+      setFiles(restored);
+      setRestoredFileCount(count);
+
+      if (wasPicking && savedStep > 0) {
+        // Same checks as "Continue from Step …": stop at the first step that still has a missing answer
+        for (let step = 0; step < savedStep; step++) {
+          if (Object.keys(validateStep(step, values, restored)).length > 0) {
+            setCurrentStep(step);
+            setHighestStep(step);
+            return;
+          }
+        }
+        setCurrentStep(savedStep);
+        setHighestStep(savedStep);
+        setReloadedWhilePicking(true);
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The student closed the file picker without choosing (the page did not reload): forget the mark
+  useEffect(function () {
+    function onFocus() {
+      setTimeout(clearPickingFile, 2000);
+    }
+    window.addEventListener('focus', onFocus);
+    return function () {
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
 
   // Settings from the admin panel (open / closed, technologies …). Starts with the built-in values.
   const [formConfig, setFormConfig] = useState(getFormConfig());
@@ -321,6 +394,11 @@ function ApplicationPage() {
         }
         return next;
       });
+      for (let i = 0; i < DOCUMENTS.length; i++) {
+        if (DOCUMENTS[i].onlyPassout) {
+          removeDraftFile(DOCUMENTS[i].name);
+        }
+      }
     }
     if (name === 'educationStatus') {
       setErrors(function (previous) {
@@ -368,12 +446,15 @@ function ApplicationPage() {
       return { ...previous, [name]: file };
     });
     setFieldError(name, '');
+    setReloadedWhilePicking(false);
+    saveDraftFile(name, file); // kept in the browser in case the phone reloads the page
   }
 
   function handleFileRemove(name) {
     setFiles(function (previous) {
       return { ...previous, [name]: null };
     });
+    removeDraftFile(name);
   }
 
   // ---------- navigation ----------
@@ -465,6 +546,7 @@ function ApplicationPage() {
       });
       submissionKeyRef.current = makeSubmissionKey();
       clearDraft();
+      clearDraftFiles();
       setResult({ referenceNo: response.referenceNo, fullName: values.fullName, email: values.email });
     } catch (error) {
       if (error.fieldErrors && Object.keys(error.fieldErrors).length > 0) {
@@ -484,6 +566,9 @@ function ApplicationPage() {
 
   function resetForm() {
     clearDraft();
+    clearDraftFiles();
+    setRestoredFileCount(0);
+    setReloadedWhilePicking(false);
     submissionKeyRef.current = makeSubmissionKey();
     setValues(EMPTY_VALUES);
     setFiles(EMPTY_FILES);
@@ -623,13 +708,19 @@ function ApplicationPage() {
 
                   {draftRestored && currentStep === 0 && hasAnyValue(values) && (
                     <div className="mt-5 rounded-lg bg-amber-50 px-3.5 py-3 text-[13px] leading-relaxed text-amber-900 ring-1 ring-amber-200">
-                      <p className="font-semibold">Your answers are saved. No need to start fresh.</p>
+                      <p className="font-semibold">
+                        {restoredFileCount > 0
+                          ? 'Your answers and documents are saved. No need to start fresh.'
+                          : 'Your answers are saved. No need to start fresh.'}
+                      </p>
                       <p className="mt-1 text-amber-800">
                         If you opened another page or refreshed while filling the form, your answers are still here.
                         {savedStep > 0
                           ? ' Continue from where you left off, or press Continue to check each step.'
                           : ' Press Continue to go on from where you left off.'}{' '}
-                        Documents must be uploaded again, because files cannot be saved on this device.
+                        {restoredFileCount > 0
+                          ? 'The ' + restoredFileCount + (restoredFileCount === 1 ? ' document' : ' documents') + ' you added are still there.'
+                          : ''}
                       </p>
                       <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
                         {savedStep > 0 && (
@@ -649,6 +740,17 @@ function ApplicationPage() {
                           Start fresh (clear all answers)
                         </button>
                       </div>
+                    </div>
+                  )}
+
+                  {reloadedWhilePicking && currentStep === DOCUMENTS_STEP && (
+                    <div role="status" className="mt-5 rounded-lg bg-brand-50 px-3.5 py-3 text-[13px] leading-relaxed text-brand-900 ring-1 ring-brand-100">
+                      <p className="font-semibold">Your phone refreshed this page while you were choosing a file.</p>
+                      <p className="mt-0.5 text-brand-800">
+                        Don't worry: your answers
+                        {restoredFileCount > 0 ? ' and the documents you already added are' : ' are'} safe. Please choose
+                        the last file again.
+                      </p>
                     </div>
                   )}
 

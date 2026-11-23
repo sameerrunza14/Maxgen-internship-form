@@ -35,41 +35,89 @@ function toJpegName(fileName) {
   return baseName + '.jpg';
 }
 
+// Gives the memory of a canvas back to the phone straight away (instead of waiting for the browser)
+function releaseCanvas(canvas) {
+  canvas.width = 0;
+  canvas.height = 0;
+}
+
+// Width and height for a longest side of maxSide (only shrink, never enlarge)
+function fitSize(width, height, maxSide) {
+  const longestSide = Math.max(width, height);
+  if (longestSide <= maxSide) {
+    return { width: width, height: height };
+  }
+  return { width: Math.round((width * maxSide) / longestSide), height: Math.round((height * maxSide) / longestSide) };
+}
+
+/**
+ * Draws the photo ONCE, already small (longest side MAX_SIDES[0]), on a canvas.
+ * A 50 MP phone photo needs about 200 MB of memory when opened at full size. createImageBitmap with a
+ * resize opens it small straight away, so low-memory phones do not run out of memory.
+ */
+async function drawPhotoSmall(file) {
+  const image = await loadImage(file); // only to read the width and height
+  const size = fitSize(image.naturalWidth, image.naturalHeight, MAX_SIDES[0]);
+  const canvas = document.createElement('canvas');
+  canvas.width = size.width;
+  canvas.height = size.height;
+  const context = canvas.getContext('2d');
+  // White background, so transparent PNG areas do not turn black in the JPEG
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, size.width, size.height);
+
+  let bitmap = null;
+  if (typeof createImageBitmap === 'function') {
+    try {
+      bitmap = await createImageBitmap(file, { resizeWidth: size.width, resizeHeight: size.height, resizeQuality: 'high' });
+    } catch {
+      bitmap = null; // older browser: draw the normal way below
+    }
+  }
+  if (bitmap) {
+    context.drawImage(bitmap, 0, 0, size.width, size.height);
+    bitmap.close();
+  } else {
+    context.drawImage(image, 0, 0, size.width, size.height);
+  }
+  image.src = ''; // let the browser forget the big photo
+  return canvas;
+}
+
 /**
  * Returns a new, smaller JPEG File that is at most `maxBytes`,
  * or null if the photo cannot be made small enough.
  */
 export async function compressImage(file, maxBytes) {
-  const image = await loadImage(file);
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
+  const firstCanvas = await drawPhotoSmall(file);
+  let canvas = firstCanvas;
 
-  for (let i = 0; i < MAX_SIDES.length; i++) {
-    const maxSide = MAX_SIDES[i];
+  try {
+    for (let i = 0; i < MAX_SIDES.length; i++) {
+      // Smaller sizes are made from the small copy, not from the big photo again
+      if (i > 0) {
+        const size = fitSize(firstCanvas.width, firstCanvas.height, MAX_SIDES[i]);
+        if (canvas !== firstCanvas) {
+          releaseCanvas(canvas);
+        }
+        canvas = document.createElement('canvas');
+        canvas.width = size.width;
+        canvas.height = size.height;
+        canvas.getContext('2d').drawImage(firstCanvas, 0, 0, size.width, size.height);
+      }
 
-    // Keep the shape of the photo; only shrink, never enlarge
-    let width = image.naturalWidth;
-    let height = image.naturalHeight;
-    const longestSide = Math.max(width, height);
-    if (longestSide > maxSide) {
-      width = Math.round((width * maxSide) / longestSide);
-      height = Math.round((height * maxSide) / longestSide);
-    }
-
-    canvas.width = width;
-    canvas.height = height;
-    // White background, so transparent PNG areas do not turn black in the JPEG
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, width, height);
-    context.drawImage(image, 0, 0, width, height);
-
-    for (let j = 0; j < QUALITIES.length; j++) {
-      const blob = await canvasToJpeg(canvas, QUALITIES[j]);
-      if (blob && blob.size <= maxBytes) {
-        return new File([blob], toJpegName(file.name), { type: 'image/jpeg', lastModified: Date.now() });
+      for (let j = 0; j < QUALITIES.length; j++) {
+        const blob = await canvasToJpeg(canvas, QUALITIES[j]);
+        if (blob && blob.size <= maxBytes) {
+          return new File([blob], toJpegName(file.name), { type: 'image/jpeg', lastModified: Date.now() });
+        }
       }
     }
+    return null;
+  } finally {
+    if (canvas !== firstCanvas) {
+      releaseCanvas(canvas);
+    }
+    releaseCanvas(firstCanvas);
   }
-
-  return null;
 }

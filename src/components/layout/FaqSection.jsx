@@ -19,7 +19,7 @@ const QUESTIONS = [
   {
     question: 'Is the internship online or offline?',
     answer:
-      'Both are available. Choose Online to work remotely, Offline to work from our office in Ahmedabad, Pune or Mumbai, or Hybrid for a mix of both.',
+      'Both are available. Choose Online to work remotely, Offline to work from our office in Ahmedabad, or Hybrid for a mix of both.',
   },
   {
     question: 'How long is the internship?',

@@ -3,6 +3,7 @@ import { FieldError } from './Field';
 import { checkFileType, checkFileSize } from '../../utils/validation';
 import { compressImage } from '../../utils/compressImage';
 import { imagesToPdf, shrinkPdf } from '../../utils/pdfTools';
+import { markPickingFile, clearPickingFile } from '../../utils/fileDraft';
 
 function isImageFile(file) {
   return file.type === 'image/jpeg' || file.type === 'image/png';
@@ -113,21 +114,25 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
     [file]
   );
 
-  // Front + back photos -> one PDF
-  async function joinPhotos(chosenFront, chosenBack) {
-    const front = await copyIntoMemory(chosenFront);
-    const back = await copyIntoMemory(chosenBack);
-    if (!front || !back) {
-      onError(config.name, CANNOT_READ_MESSAGE);
-      return;
-    }
+  // Front + back photos -> one PDF.
+  // The photos are read and made smaller right now (no extra full-size copy: that saves phone memory).
+  async function joinPhotos(front, back) {
     const maxBytes = config.maxSizeKB * 1024;
     setProcessingText('Joining front and back into one PDF…');
     let pdfFile = null;
     try {
       pdfFile = await imagesToPdf([front, back], maxBytes, combinedFileName(config.label));
     } catch {
-      pdfFile = null;
+      // The phone did not give us the photos the first time: read them once more and try again
+      const frontCopy = await copyIntoMemory(front);
+      const backCopy = await copyIntoMemory(back);
+      if (frontCopy && backCopy) {
+        try {
+          pdfFile = await imagesToPdf([frontCopy, backCopy], maxBytes, combinedFileName(config.label));
+        } catch {
+          pdfFile = null;
+        }
+      }
     }
     setProcessingText('');
     if (!pdfFile) {
@@ -142,19 +147,23 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
     if (!chosenFile) {
       return;
     }
-    const selectedFile = await copyIntoMemory(chosenFile);
-    if (!selectedFile) {
-      onError(config.name, CANNOT_READ_MESSAGE);
-      return;
-    }
-
-    const typeError = checkFileType(selectedFile, config);
+    const typeError = checkFileType(chosenFile, config);
     if (typeError) {
       onError(config.name, typeError);
       return;
     }
-
     const maxBytes = config.maxSizeKB * 1024;
+
+    // A big photo or PDF is read and made smaller right now, so no extra full-size copy is needed
+    // (a full-size copy of a big camera photo can use up the memory of a low-end phone).
+    // A file that is already small enough is copied, so the phone does not have to give it again at Submit.
+    const willBeMadeSmaller =
+      chosenFile.size > maxBytes && (isImageFile(chosenFile) || (chosenFile.type === 'application/pdf' && config.shrinkPdf));
+    const selectedFile = willBeMadeSmaller ? chosenFile : await copyIntoMemory(chosenFile);
+    if (!selectedFile) {
+      onError(config.name, CANNOT_READ_MESSAGE);
+      return;
+    }
 
     // A photo that is too large is made smaller automatically
     if (isImageFile(selectedFile) && selectedFile.size > maxBytes) {
@@ -163,7 +172,15 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
       try {
         smallerFile = await compressImage(selectedFile, maxBytes);
       } catch {
-        smallerFile = null;
+        // The phone did not give us the photo the first time: read it once more and try again
+        const copy = await copyIntoMemory(selectedFile);
+        if (copy) {
+          try {
+            smallerFile = await compressImage(copy, maxBytes);
+          } catch {
+            smallerFile = null;
+          }
+        }
       }
       setProcessingText('');
 
@@ -176,7 +193,7 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
       return;
     }
 
-    // A PDF that is too large is made smaller automatically (ID documents only, not the resume)
+    // A PDF that is too large is made smaller automatically (ID documents and the resume)
     if (selectedFile.type === 'application/pdf' && selectedFile.size > maxBytes && config.shrinkPdf) {
       setProcessingText('Making your PDF smaller…');
       let result;
@@ -228,6 +245,7 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
   }
 
   function handleInputChange(event) {
+    clearPickingFile();
     handleFiles(event.target.files);
     // Reset so selecting the same file again still triggers onChange
     event.target.value = '';
@@ -235,6 +253,7 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
 
   // "Add back side": the photo already chosen is the front
   function handleBackInputChange(event) {
+    clearPickingFile();
     const back = event.target.files[0];
     event.target.value = '';
     if (!back || !file) {
@@ -287,6 +306,7 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
         type="file"
         accept={config.accept}
         multiple={Boolean(config.twoPhotos)}
+        onClick={markPickingFile}
         onChange={handleInputChange}
         className="sr-only"
         aria-describedby={error ? inputId + '-error' : undefined}
@@ -296,6 +316,7 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
           ref={backInputRef}
           type="file"
           accept=".jpg,.jpeg,.png"
+          onClick={markPickingFile}
           onChange={handleBackInputChange}
           className="sr-only"
           tabIndex={-1}
