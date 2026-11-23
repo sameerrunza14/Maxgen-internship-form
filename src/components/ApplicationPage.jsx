@@ -231,6 +231,9 @@ function ApplicationPage() {
   const [savedStep] = useState(loadDraftStep);
   // How many documents came back after a reload (they are kept in the browser, see utils/fileDraft.js)
   const [restoredFileCount, setRestoredFileCount] = useState(0);
+  // The "answers are saved" note. It closes for good once the student picks Continue, Next or Start fresh.
+  const [showSavedNote, setShowSavedNote] = useState(draftRestored);
+  const [showClearedNote, setShowClearedNote] = useState(false);
   // True when the phone reloaded the page while the student was choosing a file (shown on the Documents step)
   const [reloadedWhilePicking, setReloadedWhilePicking] = useState(false);
 
@@ -469,6 +472,7 @@ function ApplicationPage() {
   // "Continue where you left off": checks the earlier steps one by one and goes to the saved step.
   // If an earlier step has a missing answer, it stops there and shows what to fill.
   function continueFromSavedStep() {
+    setShowSavedNote(false);
     for (let step = currentStep; step < savedStep; step++) {
       const stepErrors = validateStep(step, values, files);
       if (Object.keys(stepErrors).length > 0) {
@@ -490,6 +494,8 @@ function ApplicationPage() {
   }
 
   function handleNext() {
+    setShowSavedNote(false);
+    setShowClearedNote(false);
     const stepErrors = validateStep(currentStep, values, files);
     if (Object.keys(stepErrors).length > 0) {
       setErrors(function (previous) {
@@ -565,6 +571,9 @@ function ApplicationPage() {
   }
 
   function resetForm() {
+    const fromSavedNote = showSavedNote;
+    setShowSavedNote(false);
+    setShowClearedNote(fromSavedNote);
     clearDraft();
     clearDraftFiles();
     setRestoredFileCount(0);
@@ -706,8 +715,30 @@ function ApplicationPage() {
                     <p className="mt-1 text-sm text-slate-500">{STEPS[currentStep].description}</p>
                   </div>
 
-                  {draftRestored && currentStep === 0 && hasAnyValue(values) && (
-                    <div className="mt-5 rounded-lg bg-amber-50 px-3.5 py-3 text-[13px] leading-relaxed text-amber-900 ring-1 ring-amber-200">
+                  {showClearedNote && currentStep === 0 && (
+                    <div role="status" className="mt-5 flex items-start justify-between gap-3 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[13px] text-emerald-800 ring-1 ring-emerald-200">
+                      <p>All answers cleared. You can start filling the form from the beginning.</p>
+                      <button
+                        type="button"
+                        onClick={function () { setShowClearedNote(false); }}
+                        aria-label="Close message"
+                        className="-mr-1 rounded px-1.5 text-base leading-none text-emerald-700 hover:bg-emerald-100"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+
+                  {showSavedNote && currentStep === 0 && hasAnyValue(values) && (
+                    <div className="relative mt-5 rounded-lg bg-amber-50 px-3.5 py-3 pr-9 text-[13px] leading-relaxed text-amber-900 ring-1 ring-amber-200">
+                      <button
+                        type="button"
+                        onClick={function () { setShowSavedNote(false); }}
+                        aria-label="Close message"
+                        className="absolute right-2 top-2 rounded px-1.5 text-base leading-none text-amber-700 hover:bg-amber-100"
+                      >
+                        ×
+                      </button>
                       <p className="font-semibold">
                         {restoredFileCount > 0
                           ? 'Your answers and documents are saved. No need to start fresh.'

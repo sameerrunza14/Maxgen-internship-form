@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { FieldError } from './Field';
-import { checkFileType, checkFileSize } from '../../utils/validation';
+import { checkFileSize } from '../../utils/validation';
 import { compressImage } from '../../utils/compressImage';
 import { imagesToPdf, shrinkPdf } from '../../utils/pdfTools';
 import { markPickingFile, clearPickingFile } from '../../utils/fileDraft';
+import { detectFileKind, isPhotoKind, kindLabel, describeOtherFile, withCorrectType } from '../../utils/fileKind';
 
 function isImageFile(file) {
   return file.type === 'image/jpeg' || file.type === 'image/png';
@@ -48,6 +49,10 @@ async function copyIntoMemory(file) {
 }
 
 const CANNOT_READ_MESSAGE = 'This file could not be opened. Please tap to choose it again.';
+const HEIC_MESSAGE =
+  'This photo is in HEIC format (iPhone), which cannot be opened here. Please take a screenshot of the photo and upload the screenshot.';
+const CANNOT_OPEN_PHOTO_MESSAGE =
+  'This photo could not be opened. Please take a screenshot of it and upload the screenshot, or choose another photo.';
 
 // "Aadhaar Card / PAN Card" -> "Aadhaar Card - PAN Card (front and back).pdf"
 function combinedFileName(label) {
@@ -92,6 +97,7 @@ function PdfBadge() {
 export function FileUpload({ config, file, error, onSelect, onRemove, onError }) {
   const inputRef = useRef(null);
   const backInputRef = useRef(null);
+  const boxRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [previewUrl, setPreviewUrl] = useState('');
   const [processingText, setProcessingText] = useState(''); // e.g. 'Making your photo smaller…' while busy
@@ -113,6 +119,42 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
     },
     [file]
   );
+
+  // Shows a red message under this document and brings it into view
+  // (on a phone the page may have moved while the file picker was open).
+  function showError(message) {
+    setProcessingText('');
+    let fullMessage = message;
+    if (file) {
+      fullMessage = 'The new file was not added. ' + message;
+    }
+    onError(config.name, fullMessage);
+    setTimeout(function () {
+      if (boxRef.current && boxRef.current.scrollIntoView) {
+        boxRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 50);
+  }
+
+  // Checks that the chosen file is allowed for this document.
+  // Returns an error message, or '' when it is fine.
+  function checkKind(kind, chosenFile) {
+    const allowsPdf = config.allowedTypes.includes('application/pdf');
+    const allowsPhoto = config.allowedTypes.includes('image/jpeg');
+    if (kind === 'pdf' && !allowsPdf) {
+      return 'You chose a PDF. ' + config.label + ' must be a photo (' + config.allowedLabel + ').';
+    }
+    if (isPhotoKind(kind) && !allowsPhoto) {
+      return (
+        'You chose a ' + kindLabel(kind) + '. ' + config.label + ' must be a PDF file. ' +
+        'Tip: save your resume as PDF from Word / Google Docs, or use a free "image to PDF" app.'
+      );
+    }
+    if (kind === 'other') {
+      return 'You chose ' + describeOtherFile(chosenFile) + '. Please upload a ' + config.allowedLabel + ' file.';
+    }
+    return '';
+  }
 
   // Front + back photos -> one PDF.
   // The photos are read and made smaller right now (no extra full-size copy: that saves phone memory).
@@ -136,95 +178,134 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
     }
     setProcessingText('');
     if (!pdfFile) {
-      onError(config.name, 'These photos could not be joined into a PDF under ' + config.maxSizeKB + ' KB. Please try other photos.');
+      showError(
+        'These photos could not be joined into one PDF. Please try other photos, or take a screenshot of each photo and upload the screenshots.'
+      );
       return;
     }
     setReadyText('Front and back joined into one PDF, ' + formatSize(pdfFile.size) + ', ready');
     onSelect(config.name, pdfFile);
   }
 
+  // A photo in another format (WEBP, HEIC, …) or one that is too big becomes a JPG under the size limit
+  async function makePhotoReady(photo, kind) {
+    const maxBytes = config.maxSizeKB * 1024;
+    const isPlainPhoto = kind === 'jpeg' || kind === 'png';
+    setProcessingText(isPlainPhoto ? 'Making your photo smaller…' : 'Changing your photo to JPG…');
+
+    let smallerFile = null;
+    let couldOpen = true;
+    try {
+      smallerFile = await compressImage(photo, maxBytes);
+    } catch {
+      // The phone did not give us the photo the first time: read it once more and try again
+      const copy = await copyIntoMemory(photo);
+      if (copy) {
+        try {
+          smallerFile = await compressImage(copy, maxBytes);
+        } catch {
+          couldOpen = false;
+        }
+      } else {
+        couldOpen = false;
+      }
+    }
+    setProcessingText('');
+
+    if (!couldOpen) {
+      if (kind === 'heic') {
+        const pdfTip = config.allowedTypes.includes('application/pdf') ? ' You can also upload it as a PDF.' : '';
+        showError(HEIC_MESSAGE + pdfTip);
+      } else {
+        showError(CANNOT_OPEN_PHOTO_MESSAGE);
+      }
+      return;
+    }
+    if (!smallerFile) {
+      showError('This photo could not be made smaller than ' + config.maxSizeKB + ' KB. Please try another photo.');
+      return;
+    }
+    if (isPlainPhoto) {
+      setReadyText('Resized from ' + formatSize(photo.size) + ' to ' + formatSize(smallerFile.size) + ', ready');
+    } else {
+      setReadyText('Changed from ' + kindLabel(kind) + ' to JPG, ' + formatSize(smallerFile.size) + ', ready');
+    }
+    onSelect(config.name, smallerFile);
+  }
+
   async function handleFile(chosenFile) {
     if (!chosenFile) {
       return;
     }
-    const typeError = checkFileType(chosenFile, config);
-    if (typeError) {
-      onError(config.name, typeError);
+    // What is this file really? (the name and the type from the phone can be wrong)
+    const kind = await detectFileKind(chosenFile);
+    if (kind === null) {
+      showError(CANNOT_READ_MESSAGE);
+      return;
+    }
+    const kindError = checkKind(kind, chosenFile);
+    if (kindError) {
+      showError(kindError);
       return;
     }
     const maxBytes = config.maxSizeKB * 1024;
 
-    // A big photo or PDF is read and made smaller right now, so no extra full-size copy is needed
-    // (a full-size copy of a big camera photo can use up the memory of a low-end phone).
-    // A file that is already small enough is copied, so the phone does not have to give it again at Submit.
-    const willBeMadeSmaller =
-      chosenFile.size > maxBytes && (isImageFile(chosenFile) || (chosenFile.type === 'application/pdf' && config.shrinkPdf));
-    const selectedFile = willBeMadeSmaller ? chosenFile : await copyIntoMemory(chosenFile);
-    if (!selectedFile) {
-      onError(config.name, CANNOT_READ_MESSAGE);
-      return;
-    }
-
-    // A photo that is too large is made smaller automatically
-    if (isImageFile(selectedFile) && selectedFile.size > maxBytes) {
-      setProcessingText('Making your photo smaller…');
-      let smallerFile = null;
-      try {
-        smallerFile = await compressImage(selectedFile, maxBytes);
-      } catch {
-        // The phone did not give us the photo the first time: read it once more and try again
-        const copy = await copyIntoMemory(selectedFile);
-        if (copy) {
-          try {
-            smallerFile = await compressImage(copy, maxBytes);
-          } catch {
-            smallerFile = null;
-          }
-        }
-      }
-      setProcessingText('');
-
-      if (!smallerFile) {
-        onError(config.name, 'This photo could not be made smaller than ' + config.maxSizeKB + ' KB. Please try another photo.');
+    // ----- Photo -----
+    if (isPhotoKind(kind)) {
+      const isPlainPhoto = kind === 'jpeg' || kind === 'png';
+      if (!isPlainPhoto || chosenFile.size > maxBytes) {
+        // Read and changed right now, so no extra full-size copy is needed
+        // (a full-size copy of a big camera photo can use up the memory of a low-end phone).
+        await makePhotoReady(chosenFile, kind);
         return;
       }
-      setReadyText('Resized from ' + formatSize(selectedFile.size) + ' to ' + formatSize(smallerFile.size) + ', ready');
-      onSelect(config.name, smallerFile);
+      // Small JPG / PNG: keep a copy, so the phone does not have to give it again at Submit
+      const photoCopy = await copyIntoMemory(chosenFile);
+      if (!photoCopy) {
+        showError(CANNOT_READ_MESSAGE);
+        return;
+      }
+      setReadyText('');
+      onSelect(config.name, withCorrectType(photoCopy, kind));
       return;
     }
 
-    // A PDF that is too large is made smaller automatically (ID documents and the resume)
-    if (selectedFile.type === 'application/pdf' && selectedFile.size > maxBytes && config.shrinkPdf) {
+    // ----- PDF -----
+    if (chosenFile.size > maxBytes && config.shrinkPdf) {
       setProcessingText('Making your PDF smaller…');
       let result;
       try {
-        result = await shrinkPdf(selectedFile, maxBytes);
+        result = await shrinkPdf(withCorrectType(chosenFile, 'pdf'), maxBytes);
       } catch {
         result = { error: 'This PDF could not be made smaller. Please upload a photo of the document instead.' };
       }
       setProcessingText('');
 
       if (result.error) {
-        onError(config.name, result.error);
+        showError(result.error);
         return;
       }
-      setReadyText('Made smaller from ' + formatSize(selectedFile.size) + ' to ' + formatSize(result.file.size) + ', ready');
+      setReadyText('Made smaller from ' + formatSize(chosenFile.size) + ' to ' + formatSize(result.file.size) + ', ready');
       onSelect(config.name, result.file);
       return;
     }
 
-    const sizeError = checkFileSize(selectedFile, config);
-    if (sizeError) {
-      onError(config.name, sizeError);
+    const pdfCopy = await copyIntoMemory(chosenFile);
+    if (!pdfCopy) {
+      showError(CANNOT_READ_MESSAGE);
       return;
     }
-
+    const sizeError = checkFileSize(pdfCopy, config);
+    if (sizeError) {
+      showError(sizeError);
+      return;
+    }
     setReadyText('');
-    onSelect(config.name, selectedFile);
+    onSelect(config.name, withCorrectType(pdfCopy, 'pdf'));
   }
 
   // One file, or (for twoPhotos) two photos: front and back
-  function handleFiles(fileList) {
+  async function handleFiles(fileList) {
     const chosen = Array.from(fileList || []);
     if (chosen.length === 0) {
       return;
@@ -234,11 +315,21 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
       return;
     }
     if (chosen.length > 2) {
-      onError(config.name, 'Please select only 2 photos: the front and the back.');
+      showError('Please select only 2 photos: the front and the back.');
       return;
     }
-    if (!isImageFile(chosen[0]) || !isImageFile(chosen[1])) {
-      onError(config.name, 'To upload two files, select 2 photos (JPG or PNG): the front and the back. Or upload one PDF.');
+    const frontKind = await detectFileKind(chosen[0]);
+    const backKind = await detectFileKind(chosen[1]);
+    if (frontKind === null || backKind === null) {
+      showError(CANNOT_READ_MESSAGE);
+      return;
+    }
+    if (!isPhotoKind(frontKind) || !isPhotoKind(backKind)) {
+      showError('To upload two files, select 2 photos: the front and the back. Or upload one PDF.');
+      return;
+    }
+    if (frontKind === 'heic' || backKind === 'heic') {
+      showError(HEIC_MESSAGE);
       return;
     }
     joinPhotos(chosen[0], chosen[1]);
@@ -252,15 +343,24 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
   }
 
   // "Add back side": the photo already chosen is the front
-  function handleBackInputChange(event) {
+  async function handleBackInputChange(event) {
     clearPickingFile();
     const back = event.target.files[0];
     event.target.value = '';
     if (!back || !file) {
       return;
     }
-    if (!isImageFile(back)) {
-      onError(config.name, 'Please choose a photo (JPG or PNG) of the back side.');
+    const backKind = await detectFileKind(back);
+    if (backKind === null) {
+      showError(CANNOT_READ_MESSAGE);
+      return;
+    }
+    if (!isPhotoKind(backKind)) {
+      showError('Please choose a photo of the back side.');
+      return;
+    }
+    if (backKind === 'heic') {
+      showError(HEIC_MESSAGE);
       return;
     }
     joinPhotos(file, back);
@@ -281,7 +381,7 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
   const canAddBackSide = Boolean(config.twoPhotos && file && isImageFile(file));
 
   return (
-    <div>
+    <div ref={boxRef} className="scroll-mt-24">
       <div className="mb-1.5 flex items-center gap-1 text-sm font-semibold text-slate-800">
         <label htmlFor={inputId}>{config.label}</label>
         {config.required ? (
@@ -315,7 +415,7 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
         <input
           ref={backInputRef}
           type="file"
-          accept=".jpg,.jpeg,.png"
+          accept="image/*"
           onClick={markPickingFile}
           onChange={handleBackInputChange}
           className="sr-only"
