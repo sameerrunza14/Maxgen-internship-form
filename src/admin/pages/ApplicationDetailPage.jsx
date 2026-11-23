@@ -6,6 +6,7 @@ import EducationBadge from '../components/EducationBadge';
 import { ReturningTag, VisitedTag, JoinedTag, ordinal } from '../components/Tags';
 import CertificatesSection from '../components/CertificatesSection';
 import NotesSection from '../components/NotesSection';
+import TechnologyChoice from '../components/TechnologyChoice';
 import FeesSection from '../components/FeesSection';
 import { ConfirmDialog, secondaryButton } from '../components/AdminUi';
 import { useAdmin } from '../AdminAuth';
@@ -79,12 +80,31 @@ function ApplicationDetailPage() {
   const [confirmJoin, setConfirmJoin] = useState(false);
   const [sendJoinEmail, setSendJoinEmail] = useState(true);
   const [joiningDate, setJoiningDate] = useState(''); // 'YYYY-MM-DD', starts with today
+  // Technologies HR confirms in the Accept / Joined box (when the student chose more than one)
+  const [confirmedTechnologies, setConfirmedTechnologies] = useState([]);
+
+  // Student chose one technology: it is already confirmed. More than one: HR must tick.
+  function startTechnologyChoice() {
+    if (application.technologies.length === 1) {
+      setConfirmedTechnologies(application.technologies);
+    } else {
+      setConfirmedTechnologies([]);
+    }
+  }
+
+  // What we send to the server: only when the student chose more than one
+  function technologiesToSend() {
+    return application.technologies.length > 1 ? confirmedTechnologies : null;
+  }
+  const needsTechnologyChoice = application ? application.technologies.length > 1 : false;
+  const technologyMissing = needsTechnologyChoice && confirmedTechnologies.length === 0;
 
   // Ticking the box asks first (it accepts the application and emails the student). Unticking is direct.
   function handleJoinedTick(joined) {
     if (joined) {
       setSendJoinEmail(!application.joiningEmailAt); // already sent once? then not ticked
       setJoiningDate(toDateText(new Date()));
+      startTechnologyChoice();
       setConfirmStatus('');
       setStatusMessage({ text: '', isWarning: false });
       setConfirmJoin(true);
@@ -98,7 +118,7 @@ function ApplicationDetailPage() {
     setActionError('');
     setStatusMessage({ text: '', isWarning: false });
     try {
-      const result = await updateJoined(id, joined, sendEmail, joined ? joiningDate : '');
+      const result = await updateJoined(id, joined, sendEmail, joined ? joiningDate : '', joined ? technologiesToSend() : null);
       setApplication(result.application);
       setConfirmJoin(false);
       if (joined) {
@@ -189,6 +209,7 @@ function ApplicationDetailPage() {
   function askToConfirm(status) {
     const alreadyEmailed = application.lastStatusEmail && application.lastStatusEmail.status === status;
     setSendStatusEmail(!alreadyEmailed);
+    startTechnologyChoice();
     setConfirmJoin(false);
     setStatusMessage({ text: '', isWarning: false });
     setConfirmStatus(status);
@@ -199,7 +220,7 @@ function ApplicationDetailPage() {
     setActionError('');
     setStatusMessage({ text: '', isWarning: false });
     try {
-      const result = await updateStatus(id, status, sendEmail);
+      const result = await updateStatus(id, status, sendEmail, status === 'accepted' ? technologiesToSend() : null);
       setApplication(result.application);
       setConfirmStatus('');
       if (result.emailResult === 'sent') {
@@ -370,6 +391,12 @@ function ApplicationDetailPage() {
                 />
                 <span className="mt-1 block text-xs text-slate-500">Shown in the joining confirmation email.</span>
               </label>
+              <TechnologyChoice
+                technologies={app.technologies}
+                selected={confirmedTechnologies}
+                onChange={setConfirmedTechnologies}
+                disabled={isSavingJoin}
+              />
               <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg bg-white px-3 py-2.5 ring-1 ring-slate-200">
                 <input
                   type="checkbox"
@@ -391,7 +418,7 @@ function ApplicationDetailPage() {
               <div className="mt-3 flex gap-2">
                 <button
                   type="button"
-                  disabled={isSavingJoin || !joiningDate}
+                  disabled={isSavingJoin || !joiningDate || technologyMissing}
                   onClick={function () {
                     handleJoined(true, sendJoinEmail);
                   }}
@@ -439,6 +466,14 @@ function ApplicationDetailPage() {
                 {confirmStatus === 'accepted' ? 'Accept this application?' : 'Reject this application?'}
               </p>
               <p className="mt-1 text-[13px] text-slate-500">You can change the status later, but an email cannot be taken back.</p>
+              {confirmStatus === 'accepted' && (
+                <TechnologyChoice
+                  technologies={app.technologies}
+                  selected={confirmedTechnologies}
+                  onChange={setConfirmedTechnologies}
+                  disabled={savingStatus !== ''}
+                />
+              )}
               <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg bg-white px-3 py-2.5 ring-1 ring-slate-200">
                 <input
                   type="checkbox"
@@ -462,7 +497,7 @@ function ApplicationDetailPage() {
               <div className="mt-3 flex gap-2">
                 <button
                   type="button"
-                  disabled={savingStatus !== ''}
+                  disabled={savingStatus !== '' || (confirmStatus === 'accepted' && technologyMissing)}
                   onClick={function () {
                     changeStatus(confirmStatus, sendStatusEmail);
                   }}
