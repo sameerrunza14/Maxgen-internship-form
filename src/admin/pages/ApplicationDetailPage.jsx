@@ -14,6 +14,7 @@ import NotesSection from "../components/NotesSection";
 import TechnologyChoice from "../components/TechnologyChoice";
 import DurationChoice from "../components/DurationChoice";
 import CourseEditor from "../components/CourseEditor";
+import LastContact from "../components/LastContact";
 import FeesSection from "../components/FeesSection";
 import { ConfirmDialog, secondaryButton } from "../components/AdminUi";
 import { useAdmin } from "../AdminAuth";
@@ -404,7 +405,7 @@ function ApplicationDetailPage() {
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
               {app.fullName}
             </h1>
-            <StatusBadge status={app.status} large />
+            <StatusBadge status={app.status} joinedAt={app.joinedAt} large />
             <EducationBadge status={app.educationStatus} large />
             {app.earlierCount > 0 && (
               <ReturningTag earlierCount={app.earlierCount} />
@@ -452,9 +453,26 @@ function ApplicationDetailPage() {
               }}
             />
           )}
-          {app.reviewedBy && app.status !== "pending" && (
+          {!app.deletedAt && !app.joinedAt && app.status !== "rejected" && (
+            <LastContact
+              notes={app.notes}
+              onGoToNotes={function () {
+                const box = document.getElementById("notes");
+                if (box) {
+                  box.scrollIntoView({ behavior: "smooth", block: "start" });
+                  const field = box.querySelector("textarea");
+                  if (field) {
+                    setTimeout(function () {
+                      field.focus({ preventScroll: true });
+                    }, 400);
+                  }
+                }
+              }}
+            />
+          )}
+          {app.reviewedBy && app.status === "rejected" && (
             <p className="mt-2 text-[13px] text-slate-500">
-              Marked {app.status} by {app.reviewedBy.name} on{" "}
+              Marked rejected by {app.reviewedBy.name} on{" "}
               {formatDateTime(app.reviewedAt)}
             </p>
           )}
@@ -548,7 +566,7 @@ function ApplicationDetailPage() {
           )}
         </div>
 
-        {/* Accept / Reject */}
+        {/* Mark as joined / Reject */}
         <div className={"shrink-0 lg:w-72" + (app.deletedAt ? " hidden" : "")}>
           {confirmJoin ? (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
@@ -556,9 +574,7 @@ function ApplicationDetailPage() {
                 Mark {app.fullName.split(" ")[0]} as joined?
               </p>
               <p className="mt-1 text-[13px] text-slate-600">
-                {app.status === "accepted"
-                  ? "The student has joined the internship."
-                  : "The application is marked as Accepted automatically. No need to Accept or Reject."}
+                Pick the joining date, technology and duration. The joining email goes to the student.
               </p>
               <label className="mt-3 block">
                 <span className="mb-1 block text-[13px] font-semibold text-slate-900">
@@ -664,12 +680,11 @@ function ApplicationDetailPage() {
                     Joining date: {formatDate(app.joiningDate)}
                   </span>
                 )}
-                Accepted. No need to Accept or Reject.
                 {app.joiningEmailAt
-                  ? " Joining email sent on " +
+                  ? "Joining email sent on " +
                     formatDateTime(app.joiningEmailAt) +
                     "."
-                  : " No joining email sent."}
+                  : "No joining email sent."}
               </p>
             </div>
           ) : confirmStatus ? (
@@ -788,29 +803,18 @@ function ApplicationDetailPage() {
                   Mark as joined
                 </button>
               )}
-              {app.status !== "accepted" && (
-                <button
-                  type="button"
-                  onClick={function () {
-                    askToConfirm("accepted");
-                  }}
-                  className="rounded-lg border border-emerald-600 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-600/30"
-                >
-                  Accept only
-                </button>
-              )}
               {app.status !== "rejected" && (
                 <button
                   type="button"
                   onClick={function () {
                     askToConfirm("rejected");
                   }}
-                  className="rounded-lg border border-accent-500 bg-white px-4 py-2.5 text-sm font-semibold text-accent-600 transition hover:bg-accent-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-accent-500/20"
+                  className="col-span-2 rounded-lg border border-accent-500 bg-white px-4 py-2.5 text-sm font-semibold text-accent-600 transition hover:bg-accent-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-accent-500/20 lg:col-span-1"
                 >
                   Reject
                 </button>
               )}
-              {app.status !== "pending" && (
+              {app.status === "rejected" && (
                 <button
                   type="button"
                   disabled={savingStatus !== ""}
@@ -821,7 +825,7 @@ function ApplicationDetailPage() {
                 >
                   {savingStatus === "pending"
                     ? "Saving…"
-                    : "Move back to pending"}
+                    : "Move back to under review"}
                 </button>
               )}
             </div>
@@ -962,7 +966,7 @@ function ApplicationDetailPage() {
                       </span>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
-                      <StatusBadge status={item.status} />
+                      <StatusBadge status={item.status} joinedAt={item.joinedAt} />
                       {item.visitedAt && <VisitedTag />}
                       {item.joinedAt && <JoinedTag />}
                     </div>
@@ -985,6 +989,13 @@ function ApplicationDetailPage() {
       {/* ---------- Details ---------- */}
       <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_360px]">
         <div className="space-y-5">
+          {/* HR notes first: this is where HR works most (calls, visits, payments) */}
+          <NotesSection
+            application={app}
+            admin={admin}
+            isSuperadmin={isSuperadmin}
+            onUpdated={setApplication}
+          />
           <Section title="Personal information">
             <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
               <Detail label="Full name" value={app.fullName} />
@@ -1147,12 +1158,6 @@ function ApplicationDetailPage() {
         </div>
 
         <div className="space-y-5">
-          <NotesSection
-            application={app}
-            admin={admin}
-            isSuperadmin={isSuperadmin}
-            onUpdated={setApplication}
-          />
 
           <FeesSection
             application={app}

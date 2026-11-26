@@ -6,9 +6,9 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import AdminLayout from "../components/AdminLayout";
-import StatusBadge from "../components/StatusBadge";
+import StatusBadge, { statusKey } from "../components/StatusBadge";
 import EducationBadge from "../components/EducationBadge";
-import { ReturningTag, ProgressSteps } from "../components/Tags";
+import { ReturningTag, VisitedDateTag } from "../components/Tags";
 import { Alert } from "../components/AdminUi";
 import { useAdmin } from "../AdminAuth";
 import {
@@ -22,7 +22,6 @@ import {
 import { formatDate, formatPhone } from "../formatters";
 import {
   TECHNOLOGIES,
-  LOCATIONS,
   INTERNSHIP_MODES,
   INTERNSHIP_TYPES,
 } from "../../constants/formOptions";
@@ -34,19 +33,6 @@ import {
 } from "../dateRanges";
 
 // "Visited" filter: students who came to the office (ticked by HR on the application page)
-// Same phone number or email applied before?
-const APPLICANT_OPTIONS = [
-  { value: "returning", label: "Returning (applied before)" },
-  { value: "new", label: "First time" },
-];
-
-// "Joined" filter: students who joined the internship (ticked by HR on the application page)
-const JOINED_OPTIONS = [
-  { value: "today", label: "Joined today" },
-  { value: "yes", label: "Joined (any day)" },
-  { value: "no", label: "Not joined" },
-];
-
 const VISITED_OPTIONS = [
   { value: "today", label: "Visited today" },
   { value: "yes", label: "Visited (any day)" },
@@ -63,12 +49,33 @@ const TYPE_OPTIONS = INTERNSHIP_TYPES.map(function (item) {
   return { value: item.value, label: item.value };
 });
 
+// Under review = HR still has to follow up (not joined, not rejected). It opens first.
+// Under review = HR still has to follow up (not joined, not rejected)
 const STATUS_TABS = [
-  { value: "", label: "All", statKey: "total" },
-  { value: "pending", label: "Pending", statKey: "pending" },
-  { value: "accepted", label: "Accepted", statKey: "accepted" },
-  { value: "rejected", label: "Rejected", statKey: "rejected" },
+  { value: "all", label: "All", statKey: "total", dot: "bg-slate-400" },
+  { value: "review", label: "Under review", statKey: "underReview", dot: "bg-amber-500" },
+  { value: "joined", label: "Joined", statKey: "joined", dot: "bg-emerald-600" },
+  { value: "rejected", label: "Rejected", statKey: "rejected", dot: "bg-accent-500" },
 ];
+
+// Colour strip on the left of each row: amber = under review, green = joined, red = rejected
+const ROW_STRIP = {
+  review: "border-l-4 border-l-amber-400",
+  joined: "border-l-4 border-l-emerald-500",
+  rejected: "border-l-4 border-l-accent-500",
+};
+
+// Small line under the status: "Accepted, mail sent" / "on 26 Nov"
+function StatusNote({ item }) {
+  if (item.joinedAt) {
+    return (
+      <span className="mt-1 block text-[11px] text-slate-500">
+        on {formatDate(item.joinedAt)}
+      </span>
+    );
+  }
+  return null;
+}
 
 const selectClass =
   "w-full cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2.5 pr-8 text-sm text-slate-800 " +
@@ -165,7 +172,7 @@ function ApplicationsPage() {
   // The filters live in the page address (?status=pending&page=2), so Back / Refresh keep them
   const filters = {
     page: Number(searchParams.get("page")) || 1,
-    status: searchParams.get("status") || "",
+    status: searchParams.get("status") || "all", // the list opens on "All"
     technology: searchParams.get("technology") || "",
     location: searchParams.get("location") || "",
     mode: searchParams.get("mode") || "",
@@ -190,14 +197,11 @@ function ApplicationsPage() {
   // What is sent to the server (list and Excel)
   const requestFilters = {
     page: filters.page,
-    status: filters.status,
+    status: filters.status === "all" ? "" : filters.status,
     technology: filters.technology,
-    location: filters.location,
     mode: filters.mode,
     internshipType: filters.internshipType,
     visited: filters.visited,
-    joined: filters.joined,
-    applicant: filters.applicant,
     education: filters.education,
     search: filters.search,
     from: dateRange.from,
@@ -284,7 +288,11 @@ function ApplicationsPage() {
 
   function clearFilters() {
     setSearchText("");
-    setSearchParams(new URLSearchParams());
+    const params = new URLSearchParams();
+    if (filters.status !== "all") {
+      params.set("status", filters.status);
+    }
+    setSearchParams(params);
   }
 
   function handleError(loadError) {
@@ -367,15 +375,12 @@ function ApplicationsPage() {
       });
     }
   }
+  // The tab (Under review / Joined / …) is not a filter: "Clear filters" keeps it
   const hasFilters =
-    filters.status ||
     filters.technology ||
-    filters.location ||
     filters.mode ||
     filters.internshipType ||
     filters.visited ||
-    filters.joined ||
-    filters.applicant ||
     filters.education ||
     filters.search ||
     filters.period;
@@ -514,7 +519,16 @@ function ApplicationsPage() {
                   (isActive ? "text-brand-100" : "text-slate-500")
                 }
               >
-                {tab.label}
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className={
+                      "h-2 w-2 rounded-full " +
+                      (isActive ? "bg-white" : tab.dot)
+                    }
+                    aria-hidden="true"
+                  />
+                  {tab.label}
+                </span>
               </span>
               <span
                 className={
@@ -530,7 +544,7 @@ function ApplicationsPage() {
       </div>
 
       {/* ---------- Search + filters ---------- */}
-      <div className="mt-5 grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-5 grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="relative block sm:col-span-2">
           <span className="sr-only">Search</span>
           <svg
@@ -564,14 +578,6 @@ function ApplicationsPage() {
           }}
         />
         <FilterSelect
-          label="Location"
-          value={filters.location}
-          options={LOCATIONS}
-          onChange={function (value) {
-            updateFilter("location", value);
-          }}
-        />
-        <FilterSelect
           label="Mode"
           value={filters.mode}
           options={INTERNSHIP_MODES}
@@ -596,19 +602,11 @@ function ApplicationsPage() {
           }}
         />
         <FilterSelect
-          label="Joined"
-          value={filters.joined}
-          options={JOINED_OPTIONS}
+          label="Pursuing / Passout"
+          value={filters.education}
+          options={EDUCATION_OPTIONS}
           onChange={function (value) {
-            updateFilter("joined", value);
-          }}
-        />
-        <FilterSelect
-          label="Applicant"
-          value={filters.applicant}
-          options={APPLICANT_OPTIONS}
-          onChange={function (value) {
-            updateFilter("applicant", value);
+            updateFilter("education", value);
           }}
         />
         <FilterSelect
@@ -620,7 +618,7 @@ function ApplicationsPage() {
 
         {/* From – To, only for "Custom dates" */}
         {filters.period === "custom" && (
-          <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-3 sm:col-span-2 lg:col-span-5">
+          <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-3 sm:col-span-2 lg:col-span-4">
             <label className="block min-w-0 flex-1 sm:flex-none">
               <span className="mb-1 block text-[13px] font-semibold text-slate-600">
                 From
@@ -696,16 +694,6 @@ function ApplicationsPage() {
                 Clear filters
               </button>
             )}
-            <div className="ml-auto w-full sm:w-56">
-              <FilterSelect
-                label="Pursuing / Passout"
-                value={filters.education}
-                options={EDUCATION_OPTIONS}
-                onChange={function (value) {
-                  updateFilter("education", value);
-                }}
-              />
-            </div>
           </div>
         )}
 
@@ -755,7 +743,7 @@ function ApplicationsPage() {
                     <th className="px-4 py-3 font-medium">Applied</th>
                     <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Education</th>
-                    <th className="px-4 py-3 font-medium">Progress</th>
+                    <th className="px-4 py-3 font-medium">Visited</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -768,7 +756,12 @@ function ApplicationsPage() {
                         }}
                         className="cursor-pointer transition-colors hover:bg-brand-50/50"
                       >
-                        <td className="px-4 py-3">
+                        <td
+                          className={
+                            "px-4 py-3 " +
+                            ROW_STRIP[statusKey(item.status, item.joinedAt)]
+                          }
+                        >
                           <Link
                             to={"/admin/applications/" + item.id}
                             onClick={function (event) {
@@ -814,13 +807,14 @@ function ApplicationsPage() {
                           {formatDate(item.createdAt)}
                         </td>
                         <td className="px-4 py-3">
-                          <StatusBadge status={item.status} />
+                          <StatusBadge status={item.status} joinedAt={item.joinedAt} />
+                          <StatusNote item={item} />
                         </td>
                         <td className="px-4 py-3">
                           <EducationBadge status={item.educationStatus} />
                         </td>
                         <td className="px-4 py-3">
-                          <ProgressSteps visitedAt={item.visitedAt} joinedAt={item.joinedAt} />
+                          <VisitedDateTag visitedAt={item.visitedAt} />
                         </td>
                       </tr>
                     );
@@ -836,7 +830,10 @@ function ApplicationsPage() {
                   <li key={item.id}>
                     <Link
                       to={"/admin/applications/" + item.id}
-                      className="block rounded-xl border border-slate-200 bg-white p-4 transition active:bg-slate-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/20"
+                      className={
+                        "block rounded-xl border border-slate-200 bg-white p-4 transition active:bg-slate-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/20 " +
+                        ROW_STRIP[statusKey(item.status, item.joinedAt)]
+                      }
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -853,7 +850,8 @@ function ApplicationsPage() {
                           )}
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-1.5">
-                          <StatusBadge status={item.status} />
+                          <StatusBadge status={item.status} joinedAt={item.joinedAt} />
+                          <StatusNote item={item} />
                           <EducationBadge status={item.educationStatus} />
                         </div>
                       </div>
@@ -870,7 +868,13 @@ function ApplicationsPage() {
                         {item.mode} · {item.durations.join(", ")}
                       </p>
                       <p className="mt-2.5">
-                        <ProgressSteps visitedAt={item.visitedAt} joinedAt={item.joinedAt} />
+                        {item.visitedAt ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+                            Visited <VisitedDateTag visitedAt={item.visitedAt} />
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">Not visited yet</span>
+                        )}
                       </p>
                       <p className="mt-2 text-xs text-slate-400">
                         {item.referenceNo} · Applied{" "}

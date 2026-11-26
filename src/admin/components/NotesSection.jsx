@@ -21,15 +21,51 @@ const NOTE_TYPES = [
   { value: 'other', label: 'Note', className: 'bg-slate-100 text-slate-700 ring-slate-200' },
 ];
 
-// One-click notes: fill the text and the type
-const QUICK_NOTES = [
-  { label: 'No answer', text: 'Called – no answer.', type: 'call' },
-  { label: 'Interested, will visit', text: 'Called – interested, will visit the office.', type: 'call' },
-  { label: 'Will confirm later', text: 'Will confirm after discussing with parents.', type: 'call' },
-  { label: 'Visited office', text: 'Visited the office for counselling.', type: 'visit' },
-  { label: 'Registration done', text: 'Registration done. Fee paid: ₹', type: 'payment' },
-  { label: 'Not interested', text: 'Not interested right now.', type: 'other' },
+// Step 1 of a new note: what happened? (big buttons, Call is the most used)
+const ADD_TYPES = [
+  { value: 'call', label: 'Call', placeholder: 'e.g. Called, will join on Monday.' },
+  { value: 'visit', label: 'Visit', placeholder: 'e.g. Came with parents, liked the course.' },
+  { value: 'payment', label: 'Payment', placeholder: 'e.g. Fee paid ₹2000 in cash.' },
+  { value: 'other', label: 'Note', placeholder: 'Write anything about this student.' },
 ];
+
+// Step 2: one-click text, only for the chosen type (so only a few buttons show at a time)
+const QUICK_NOTES = {
+  call: [
+    { label: 'No answer', text: 'Called – no answer.' },
+    { label: 'Will visit', text: 'Called – interested, will visit the office.' },
+    { label: 'Will confirm later', text: 'Called – will confirm after discussing with parents.' },
+    { label: 'Not interested', text: 'Called – not interested right now.' },
+  ],
+  visit: [{ label: 'Visited office', text: 'Visited the office for counselling.' }],
+  payment: [{ label: 'Registration fee paid', text: 'Registration done. Fee paid: ₹' }],
+  other: [],
+};
+
+function TypeIcon({ type }) {
+  if (type === 'call') {
+    return (
+      <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path d="M2 3.5A1.5 1.5 0 013.5 2h1.15a1.5 1.5 0 011.46 1.14l.57 2.3a1.5 1.5 0 01-.43 1.45l-1 .97a11.1 11.1 0 004.9 4.9l.97-1a1.5 1.5 0 011.45-.43l2.3.57A1.5 1.5 0 0118 13.35v1.15a1.5 1.5 0 01-1.5 1.5H15C8 16 4 12 4 5V3.5H2z" />
+      </svg>
+    );
+  }
+  if (type === 'visit') {
+    return (
+      <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fillRule="evenodd" d="M4 2.5A1.5 1.5 0 015.5 1h9A1.5 1.5 0 0116 2.5V18h1a.75.75 0 010 1.5H3A.75.75 0 013 18h1V2.5zM8 5a.75.75 0 000 1.5h1A.75.75 0 009 5H8zm3 0a.75.75 0 000 1.5h1A.75.75 0 0012 5h-1zM8 9a.75.75 0 000 1.5h1A.75.75 0 009 9H8zm3 0a.75.75 0 000 1.5h1a.75.75 0 000-1.5h-1zm-2.5 5.5V18h3v-3.5h-3z" clipRule="evenodd" />
+      </svg>
+    );
+  }
+  if (type === 'payment') {
+    return <span className="text-sm font-bold leading-none" aria-hidden="true">₹</span>;
+  }
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path d="M13.6 3.4a2 2 0 012.9 2.9l-8.6 8.6-3.6.8.8-3.6 8.5-8.7z" />
+    </svg>
+  );
+}
 
 function findType(value) {
   for (let i = 0; i < NOTE_TYPES.length; i++) {
@@ -78,6 +114,15 @@ function TypeTag({ type }) {
 }
 
 // Type chooser: a row of small buttons
+function findAddType(value) {
+  for (let i = 0; i < ADD_TYPES.length; i++) {
+    if (ADD_TYPES[i].value === value) {
+      return ADD_TYPES[i];
+    }
+  }
+  return ADD_TYPES[3];
+}
+
 function TypePicker({ value, onChange }) {
   return (
     <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Note type">
@@ -140,7 +185,7 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
 
   // New note form
   const [text, setText] = useState('');
-  const [type, setType] = useState('other');
+  const [type, setType] = useState('call'); // most notes are about a call
   const [photos, setPhotos] = useState([]); // [{ file, previewUrl }]
   const [errors, setErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
@@ -224,36 +269,6 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
     }
   }
 
-  // "Paste photo" button: reads a copied photo (works in Chrome on computers and most phones)
-  async function pasteFromClipboard() {
-    setPasteHint('');
-    if (!navigator.clipboard || !navigator.clipboard.read) {
-      setPasteHint('Tap and hold in the note box above, then choose Paste.');
-      return;
-    }
-    try {
-      const clipboardItems = await navigator.clipboard.read();
-      const found = [];
-      for (let i = 0; i < clipboardItems.length; i++) {
-        const types = clipboardItems[i].types;
-        for (let j = 0; j < types.length; j++) {
-          if (types[j] === 'image/png' || types[j] === 'image/jpeg') {
-            const blob = await clipboardItems[i].getType(types[j]);
-            found.push(new File([blob], namePhoto({ name: '', type: types[j] }), { type: types[j] }));
-            break;
-          }
-        }
-      }
-      if (found.length === 0) {
-        setPasteHint('No photo was copied. In WhatsApp, open the photo, tap ⋮ → Copy (or Share → Copy), then try again.');
-        return;
-      }
-      addPhotoFiles(found);
-    } catch {
-      setPasteHint('The browser did not allow pasting here. Tap and hold in the note box above, then choose Paste.');
-    }
-  }
-
   function removePhoto(index) {
     setPhotos(function (current) {
       URL.revokeObjectURL(current[index].previewUrl);
@@ -268,7 +283,7 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
       URL.revokeObjectURL(photos[i].previewUrl);
     }
     setText('');
-    setType('other');
+    setType('call');
     setPhotos([]);
     setErrors({});
     setPasteHint('');
@@ -347,33 +362,60 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
   const notes = application.notes || [];
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white">
+    <section id="notes" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white">
       <h2 className="border-b border-slate-200 px-4 py-3 text-[15px] font-bold text-slate-900 sm:px-5">
         HR notes{notes.length > 0 ? ' (' + notes.length + ')' : ''}
       </h2>
       <div className="px-4 py-4 sm:px-5">
         {canChange && (
           <form onSubmit={handleAdd} onPaste={handlePaste}>
-            {/* One-click notes */}
-            <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-wide text-slate-400">Quick note</p>
-            <div className="mb-3 flex flex-wrap gap-1.5">
-              {QUICK_NOTES.map(function (quick) {
+            {/* Step 1: what happened? */}
+            <p className="mb-1.5 text-[13px] font-semibold text-slate-700">What happened?</p>
+            <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Note type">
+              {ADD_TYPES.map(function (option) {
+                const isChosen = type === option.value;
                 return (
                   <button
-                    key={quick.label}
+                    key={option.value}
                     type="button"
+                    role="radio"
+                    aria-checked={isChosen}
                     onClick={function () {
-                      applyQuickNote(quick);
+                      setType(option.value);
                     }}
-                    className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800"
+                    className={
+                      'flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[13px] font-semibold ring-1 transition ' +
+                      (isChosen
+                        ? 'bg-brand-700 text-white ring-brand-700'
+                        : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50 hover:text-slate-900')
+                    }
                   >
-                    {quick.label}
+                    <TypeIcon type={option.value} />
+                    {option.label}
                   </button>
                 );
               })}
             </div>
 
-            <TypePicker value={type} onChange={setType} />
+            {/* Step 2: one-click text for this type */}
+            {QUICK_NOTES[type].length > 0 && (
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {QUICK_NOTES[type].map(function (quick) {
+                  return (
+                    <button
+                      key={quick.label}
+                      type="button"
+                      onClick={function () {
+                        applyQuickNote({ text: quick.text, type: type });
+                      }}
+                      className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800"
+                    >
+                      + {quick.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             <label htmlFor="note-text" className="sr-only">
               Note
@@ -387,7 +429,7 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
                 setText(event.target.value);
                 setErrors({});
               }}
-              placeholder="e.g. Called, will join on Monday. You can also paste a photo here."
+              placeholder={findAddType(type).placeholder}
               className={textareaClass + ' mt-2.5'}
             />
             <ErrorText>{errors.note}</ErrorText>
@@ -467,16 +509,6 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
                     </svg>
                     Camera
                   </button>
-                  <button type="button" disabled={isPreparingPhotos} onClick={pasteFromClipboard} className={photoButtonClass}>
-                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path
-                        fillRule="evenodd"
-                        d="M13.89 3.39A2.25 2.25 0 0011.75 2h-3.5a2.25 2.25 0 00-2.14 1.39A2.25 2.25 0 004 5.6v10.15A2.25 2.25 0 006.25 18h7.5A2.25 2.25 0 0016 15.75V5.6a2.25 2.25 0 00-2.11-2.21zM8.25 3.5a.75.75 0 00-.75.75v.5h5v-.5a.75.75 0 00-.75-.75h-3.5z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    Paste photo
-                  </button>
                   <span className="text-xs text-slate-400">
                     {photos.length}/{MAX_PHOTOS}
                   </span>
@@ -485,6 +517,10 @@ function NotesSection({ application, admin, isSuperadmin, onUpdated }) {
             </div>
             <ErrorText>{errors.photos}</ErrorText>
             {pasteHint && <p className="mt-1.5 text-[13px] text-slate-600">{pasteHint}</p>}
+            <p className="mt-1.5 text-xs text-slate-500">
+              Tip: copy a photo (e.g. from WhatsApp), then press <b>Ctrl + V</b> in the note box. On a phone, tap and hold in the
+              box and choose <b>Paste</b>.
+            </p>
 
             <div className="mt-3 flex items-center justify-between gap-3">
               <span className="text-xs text-slate-400">

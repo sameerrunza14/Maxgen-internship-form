@@ -133,7 +133,7 @@ function ApplicationsTrash({ canDelete }) {
                         <Link to={'/admin/applications/' + item.id} className="text-[15px] font-semibold text-slate-900 hover:text-brand-700">
                           {item.fullName}
                         </Link>
-                        <StatusBadge status={item.status} />
+                        <StatusBadge status={item.status} joinedAt={item.joinedAt} />
                       </p>
                       <p className="mt-0.5 text-[13px] text-slate-500">
                         {formatPhone(item.contactNumber)} · {item.referenceNo} · {item.technologies.join(', ')} · Applied {formatDate(item.createdAt)}

@@ -72,6 +72,27 @@ function ProgressStep({ label, done, doneClassName }) {
   );
 }
 
+// "Visited" column of the list: did the student come to the office? (Joined is shown in Status.)
+export function VisitedDateTag({ visitedAt }) {
+  if (!visitedAt) {
+    return <span className="text-xs text-slate-400">Not yet</span>;
+  }
+  const date = new Date(visitedAt);
+  const text = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800 ring-1 ring-sky-200">
+      <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path
+          fillRule="evenodd"
+          d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0l-3.5-3.5a1 1 0 111.4-1.4l2.8 2.79 6.8-6.8a1 1 0 011.4 0z"
+          clipRule="evenodd"
+        />
+      </svg>
+      {text}
+    </span>
+  );
+}
+
 export function ProgressSteps({ visitedAt, joinedAt }) {
   return (
     <span

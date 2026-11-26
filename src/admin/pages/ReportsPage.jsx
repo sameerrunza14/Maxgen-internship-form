@@ -7,8 +7,8 @@ import { getDateRange, describeRange } from '../dateRanges';
 
 // Colours for the three statuses (same as the status badges)
 const SEGMENTS = [
-  { key: 'accepted', label: 'Accepted', className: 'bg-emerald-500' },
-  { key: 'pending', label: 'Pending', className: 'bg-amber-400' },
+  { key: 'accepted', label: 'Joined / accepted', className: 'bg-emerald-500' },
+  { key: 'pending', label: 'Under review', className: 'bg-amber-400' },
   { key: 'rejected', label: 'Rejected', className: 'bg-accent-500' },
 ];
 
@@ -28,7 +28,7 @@ function SummaryCard({ label, value, note }) {
   );
 }
 
-// One row: name, total, and a bar split into accepted / pending / rejected
+// One row: name, total, and a bar split into accepted / under review / rejected
 function BreakdownRow({ row, max, label }) {
   const width = max > 0 ? (row.total / max) * 100 : 0;
   return (
@@ -125,8 +125,8 @@ function ReportsPage() {
         <div className={'transition-opacity ' + (isLoading ? 'opacity-60' : '')}>
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <SummaryCard label="Applications" value={summary.total} />
-            <SummaryCard label="Pending" value={summary.pending} />
-            <SummaryCard label="Accepted" value={summary.accepted} />
+            <SummaryCard label="Under review" value={summary.pending} />
+            <SummaryCard label="Joined / accepted" value={summary.accepted} />
             <SummaryCard label="Rejected" value={summary.rejected} />
             <SummaryCard
               label="Acceptance rate"
