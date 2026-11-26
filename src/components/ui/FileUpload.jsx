@@ -66,6 +66,50 @@ function formatSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+// A phone or tablet (touch screen without a mouse).
+// On these we show Gallery / Camera / PDF buttons, because Android opens a different picker for each:
+// - accept="image/*" only            -> the Photos / Gallery picker (WhatsApp photos are there too)
+// - accept="image/*" + capture       -> the camera
+// - accept="application/pdf" only    -> the Files app
+// One input that accepts photos AND PDFs makes Android show only "Camera" and "Files" (no Gallery).
+function isTouchPhone() {
+  if (typeof window === 'undefined' || !window.matchMedia) {
+    return false;
+  }
+  return window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(pointer: fine)').matches;
+}
+
+function GalleryIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <circle cx="8.5" cy="9.5" r="1.6" />
+      <path d="M21 16l-5.2-5.2a1.5 1.5 0 00-2.1 0L5 19.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CameraIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path
+        d="M4 8.5A2.5 2.5 0 016.5 6h1.3l1.2-1.8A1.5 1.5 0 0110.3 3.5h3.4a1.5 1.5 0 011.3.7L16.2 6h1.3A2.5 2.5 0 0120 8.5v8a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 16.5v-8z"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12.5" r="3.3" />
+    </svg>
+  );
+}
+
+function FileIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M14 3.5H7.5A2 2 0 005.5 5.5v13a2 2 0 002 2h9a2 2 0 002-2V8l-4.5-4.5z" strokeLinejoin="round" />
+      <path d="M14 3.5V8h4.5M9 13h6M9 16.5h4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function UploadIcon() {
   return (
     <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" aria-hidden="true">
@@ -97,8 +141,14 @@ function PdfBadge() {
 export function FileUpload({ config, file, error, onSelect, onRemove, onError }) {
   const inputRef = useRef(null);
   const backInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const pdfInputRef = useRef(null);
+  const backCameraInputRef = useRef(null);
   const boxRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isPhone] = useState(isTouchPhone);
+  const [showReplaceOptions, setShowReplaceOptions] = useState(false); // phone: Gallery / Camera / PDF under the file
   const [previewUrl, setPreviewUrl] = useState('');
   const [processingText, setProcessingText] = useState(''); // e.g. 'Making your photo smaller…' while busy
   const [readyText, setReadyText] = useState(''); // e.g. 'Resized from 3.2 MB to 310 KB' after we changed the file
@@ -337,6 +387,7 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
 
   function handleInputChange(event) {
     clearPickingFile();
+    setShowReplaceOptions(false);
     handleFiles(event.target.files);
     // Reset so selecting the same file again still triggers onChange
     event.target.value = '';
@@ -376,7 +427,62 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
     inputRef.current.click();
   }
 
+  function openInput(ref) {
+    if (ref.current) {
+      ref.current.click();
+    }
+  }
+
   const inputId = 'file-' + config.name;
+  const allowsPhoto = config.allowedTypes.includes('image/jpeg');
+  const allowsPdf = config.allowedTypes.includes('application/pdf');
+  // Phone + this document takes photos: show Gallery / Camera (/ PDF) buttons instead of one picker
+  const showPhoneChoices = isPhone && allowsPhoto;
+
+  // The Gallery / Camera / PDF buttons (phone only)
+  function renderPhoneChoices() {
+    const buttons = [
+      {
+        key: 'gallery',
+        label: 'Gallery',
+        hint: config.twoPhotos ? 'Pick 1 or 2 photos' : 'Choose a photo',
+        icon: <GalleryIcon />,
+        ref: galleryInputRef,
+      },
+      { key: 'camera', label: 'Camera', hint: 'Take a photo', icon: <CameraIcon />, ref: cameraInputRef },
+    ];
+    if (allowsPdf) {
+      buttons.push({ key: 'pdf', label: 'PDF', hint: 'From Files', icon: <FileIcon />, ref: pdfInputRef });
+    }
+    return (
+      <div
+        className={
+          'grid gap-2 rounded-xl border-2 border-dashed p-2 ' +
+          (buttons.length === 3 ? 'grid-cols-3 ' : 'grid-cols-2 ') +
+          (error ? 'border-accent-500/60 bg-accent-50/40' : 'border-slate-300 bg-slate-50/60')
+        }
+      >
+        {buttons.map(function (item) {
+          return (
+            <button
+              key={item.key}
+              type="button"
+              data-choice={item.key}
+              disabled={isProcessing}
+              onClick={function () {
+                openInput(item.ref);
+              }}
+              className="flex min-w-0 flex-col items-center gap-1 rounded-lg bg-white px-1.5 py-2.5 text-center shadow-sm ring-1 ring-slate-200 transition active:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 disabled:opacity-50"
+            >
+              <span className="text-brand-700">{item.icon}</span>
+              <span className="text-[13px] font-semibold text-slate-800">{item.label}</span>
+              <span className="text-[11px] leading-tight text-slate-500">{item.hint}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
   // Front photo chosen alone: offer to add the back side
   const canAddBackSide = Boolean(config.twoPhotos && file && isImageFile(file));
 
@@ -411,17 +517,71 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
         className="sr-only"
         aria-describedby={error ? inputId + '-error' : undefined}
       />
-      {config.twoPhotos && (
+      {allowsPhoto && (
+        <>
+          {/* Only photos -> Android opens the Photos / Gallery picker */}
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            multiple={Boolean(config.twoPhotos)}
+            onClick={markPickingFile}
+            onChange={handleInputChange}
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+          {/* capture -> opens the back camera directly */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onClick={markPickingFile}
+            onChange={handleInputChange}
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+        </>
+      )}
+      {allowsPdf && allowsPhoto && (
+        // Only PDF -> Android opens the Files app
         <input
-          ref={backInputRef}
+          ref={pdfInputRef}
           type="file"
-          accept="image/*"
+          accept="application/pdf,.pdf"
           onClick={markPickingFile}
-          onChange={handleBackInputChange}
+          onChange={handleInputChange}
           className="sr-only"
           tabIndex={-1}
           aria-hidden="true"
         />
+      )}
+      {config.twoPhotos && (
+        <>
+          <input
+            ref={backInputRef}
+            type="file"
+            accept="image/*"
+            onClick={markPickingFile}
+            onChange={handleBackInputChange}
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+          <input
+            ref={backCameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onClick={markPickingFile}
+            onChange={handleBackInputChange}
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+        </>
       )}
 
       {file ? (
@@ -454,8 +614,15 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
-              onClick={openPicker}
+              onClick={function () {
+                if (showPhoneChoices) {
+                  setShowReplaceOptions(!showReplaceOptions);
+                } else {
+                  openPicker();
+                }
+              }}
               disabled={isProcessing}
+              aria-expanded={showPhoneChoices ? showReplaceOptions : undefined}
               className="rounded-lg px-2.5 py-2 text-xs font-semibold text-brand-700 transition hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 disabled:opacity-50"
             >
               Replace
@@ -465,6 +632,7 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
               disabled={isProcessing}
               onClick={function () {
                 setReadyText('');
+                setShowReplaceOptions(false);
                 onRemove(config.name);
               }}
               aria-label={'Remove ' + config.label}
@@ -475,6 +643,13 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
               </svg>
             </button>
           </div>
+        </div>
+      ) : showPhoneChoices ? (
+        <div>
+          {renderPhoneChoices()}
+          <p className="mt-1.5 text-xs text-slate-500">
+            {isProcessing ? processingText : config.allowedLabel + ', up to ' + config.maxSizeKB + ' KB. Big photos are made smaller for you.'}
+          </p>
         </div>
       ) : (
         <button
@@ -524,7 +699,46 @@ export function FileUpload({ config, file, error, onSelect, onRemove, onError })
         </button>
       )}
 
-      {canAddBackSide && (
+      {file && showPhoneChoices && showReplaceOptions && (
+        <div className="mt-2">
+          <p className="mb-1.5 text-xs font-semibold text-slate-600">Replace with:</p>
+          {renderPhoneChoices()}
+        </div>
+      )}
+
+      {canAddBackSide && showPhoneChoices && !showReplaceOptions && (
+        <div className="mt-2 rounded-lg border border-dashed border-brand-300 bg-brand-50/50 p-2">
+          <p className="px-1 text-xs font-semibold text-brand-800">
+            {isProcessing ? processingText : 'Add back side (optional)'}
+          </p>
+          <div className="mt-1.5 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={function () {
+                openInput(backInputRef);
+              }}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white px-2 py-2 text-xs font-semibold text-brand-700 shadow-sm ring-1 ring-slate-200 active:bg-brand-50 disabled:opacity-50"
+            >
+              <GalleryIcon />
+              Gallery
+            </button>
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={function () {
+                openInput(backCameraInputRef);
+              }}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white px-2 py-2 text-xs font-semibold text-brand-700 shadow-sm ring-1 ring-slate-200 active:bg-brand-50 disabled:opacity-50"
+            >
+              <CameraIcon />
+              Camera
+            </button>
+          </div>
+        </div>
+      )}
+
+      {canAddBackSide && !showPhoneChoices && (
         <button
           type="button"
           disabled={isProcessing}

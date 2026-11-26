@@ -318,7 +318,7 @@ export async function getApplication(id) {
 
 // sendEmail: true = also email the student about the decision (accepted / rejected)
 // Returns { application, emailResult, message }
-// technologies: the ones HR confirmed when accepting (only sent when the student chose more than one)
+// technologies: the ones HR confirmed in the Accept box (the student's choice, or another technology)
 export async function updateStatus(id, status, sendEmail, technologies) {
   const body = { status: status, sendEmail: sendEmail === true };
   if (technologies) {
@@ -348,10 +348,13 @@ export async function updateVisited(id, visited) {
 // Marks the student as joined (or removes the mark). Joining also accepts the application,
 // and sendEmail = true sends the "Welcome, you have joined" email.
 // joiningDate: 'YYYY-MM-DD' (shown in the email). Returns { application, emailResult, message }
-export async function updateJoined(id, joined, sendEmail, joiningDate, technologies) {
+export async function updateJoined(id, joined, sendEmail, joiningDate, technologies, duration) {
   const body = { joined: joined, sendEmail: sendEmail === true, joiningDate: joiningDate || '' };
   if (technologies) {
     body.technologies = technologies;
+  }
+  if (duration) {
+    body.duration = duration;
   }
   const result = await request('/api/admin/applications/' + encodeURIComponent(id) + '/joined', {
     method: 'PATCH',

@@ -7,6 +7,7 @@ import { ReturningTag, VisitedTag, JoinedTag, ordinal } from '../components/Tags
 import CertificatesSection from '../components/CertificatesSection';
 import NotesSection from '../components/NotesSection';
 import TechnologyChoice from '../components/TechnologyChoice';
+import DurationChoice from '../components/DurationChoice';
 import FeesSection from '../components/FeesSection';
 import { ConfirmDialog, secondaryButton } from '../components/AdminUi';
 import { useAdmin } from '../AdminAuth';
@@ -18,6 +19,7 @@ import {
   updateJoined,
   moveToTrash,
   restoreApplication,
+  getFormTechnologies,
   SessionExpiredError,
 } from '../adminApi';
 import { formatDate, formatDateTime, formatPhone, formatFileSize } from '../formatters';
@@ -82,8 +84,21 @@ function ApplicationDetailPage() {
   const [joiningDate, setJoiningDate] = useState(''); // 'YYYY-MM-DD', starts with today
   // Technologies HR confirms in the Accept / Joined box (when the student chose more than one)
   const [confirmedTechnologies, setConfirmedTechnologies] = useState([]);
+  const [allTechnologies, setAllTechnologies] = useState([]); // for "Other technology"
+  const [confirmedDuration, setConfirmedDuration] = useState(''); // picked in the Joined box
 
-  // Student chose one technology: it is already confirmed. More than one: HR must tick.
+  // Every technology on the form (Settings page), loaded once
+  useEffect(function () {
+    getFormTechnologies()
+      .then(function (list) {
+        setAllTechnologies(Array.isArray(list) ? list : []);
+      })
+      .catch(function () {
+        setAllTechnologies([]);
+      });
+  }, []);
+
+  // Student chose one technology: it is ticked already. More than one: HR must tick.
   function startTechnologyChoice() {
     if (application.technologies.length === 1) {
       setConfirmedTechnologies(application.technologies);
@@ -92,12 +107,11 @@ function ApplicationDetailPage() {
     }
   }
 
-  // What we send to the server: only when the student chose more than one
+  // What we send to the server (it changes nothing when it is the same as the student's choice)
   function technologiesToSend() {
-    return application.technologies.length > 1 ? confirmedTechnologies : null;
+    return confirmedTechnologies;
   }
-  const needsTechnologyChoice = application ? application.technologies.length > 1 : false;
-  const technologyMissing = needsTechnologyChoice && confirmedTechnologies.length === 0;
+  const technologyMissing = confirmedTechnologies.length === 0;
 
   // Ticking the box asks first (it accepts the application and emails the student). Unticking is direct.
   function handleJoinedTick(joined) {
@@ -105,6 +119,8 @@ function ApplicationDetailPage() {
       setSendJoinEmail(!application.joiningEmailAt); // already sent once? then not ticked
       setJoiningDate(toDateText(new Date()));
       startTechnologyChoice();
+      // One duration on the form: already picked. More than one: HR picks.
+      setConfirmedDuration(application.durations.length === 1 ? application.durations[0] : '');
       setConfirmStatus('');
       setStatusMessage({ text: '', isWarning: false });
       setConfirmJoin(true);
@@ -118,7 +134,14 @@ function ApplicationDetailPage() {
     setActionError('');
     setStatusMessage({ text: '', isWarning: false });
     try {
-      const result = await updateJoined(id, joined, sendEmail, joined ? joiningDate : '', joined ? technologiesToSend() : null);
+      const result = await updateJoined(
+        id,
+        joined,
+        sendEmail,
+        joined ? joiningDate : '',
+        joined ? technologiesToSend() : null,
+        joined ? confirmedDuration : ''
+      );
       setApplication(result.application);
       setConfirmJoin(false);
       if (joined) {
@@ -392,9 +415,16 @@ function ApplicationDetailPage() {
                 <span className="mt-1 block text-xs text-slate-500">Shown in the joining confirmation email.</span>
               </label>
               <TechnologyChoice
-                technologies={app.technologies}
+                studentTechnologies={app.technologies}
+                allTechnologies={allTechnologies}
                 selected={confirmedTechnologies}
                 onChange={setConfirmedTechnologies}
+                disabled={isSavingJoin}
+              />
+              <DurationChoice
+                studentDurations={app.durations}
+                selected={confirmedDuration}
+                onChange={setConfirmedDuration}
                 disabled={isSavingJoin}
               />
               <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg bg-white px-3 py-2.5 ring-1 ring-slate-200">
@@ -418,7 +448,7 @@ function ApplicationDetailPage() {
               <div className="mt-3 flex gap-2">
                 <button
                   type="button"
-                  disabled={isSavingJoin || !joiningDate || technologyMissing}
+                  disabled={isSavingJoin || !joiningDate || technologyMissing || !confirmedDuration}
                   onClick={function () {
                     handleJoined(true, sendJoinEmail);
                   }}
@@ -468,7 +498,8 @@ function ApplicationDetailPage() {
               <p className="mt-1 text-[13px] text-slate-500">You can change the status later, but an email cannot be taken back.</p>
               {confirmStatus === 'accepted' && (
                 <TechnologyChoice
-                  technologies={app.technologies}
+                  studentTechnologies={app.technologies}
+                  allTechnologies={allTechnologies}
                   selected={confirmedTechnologies}
                   onChange={setConfirmedTechnologies}
                   disabled={savingStatus !== ''}
