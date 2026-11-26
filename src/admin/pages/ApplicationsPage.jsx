@@ -748,7 +748,7 @@ function ApplicationsPage() {
                   <tr>
                     <th className="px-4 py-3 font-medium">Applicant</th>
                     <th className="px-4 py-3 font-medium">Technology</th>
-                    <th className="px-4 py-3 font-medium">Location · Mode</th>
+                    <th className="px-4 py-3 font-medium">Mode</th>
                     <th className="hidden px-4 py-3 font-medium lg:table-cell">
                       Duration
                     </th>
@@ -790,6 +790,14 @@ function ApplicationsPage() {
                         </td>
                         <td className="px-4 py-3 text-slate-700">
                           {item.technologies.join(", ")}
+                          {item.technologies.length > 1 && (
+                            <span
+                              title="The student chose more than one. Open the application and press Change."
+                              className="ml-1.5 inline-block rounded bg-amber-50 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200"
+                            >
+                              {item.technologies.length} chosen
+                            </span>
+                          )}
                           {item.internshipType && (
                             <span className="mt-0.5 block text-[13px] text-slate-500">
                               {item.internshipType} internship
@@ -797,7 +805,7 @@ function ApplicationsPage() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-slate-700">
-                          {item.location} · {item.mode}
+                          {item.mode}
                         </td>
                         <td className="hidden px-4 py-3 text-slate-700 lg:table-cell">
                           {item.durations.join(", ")}
@@ -859,8 +867,7 @@ function ApplicationsPage() {
                         )}
                       </p>
                       <p className="mt-0.5 text-[13px] text-slate-500">
-                        {item.location} · {item.mode} ·{" "}
-                        {item.durations.join(", ")}
+                        {item.mode} · {item.durations.join(", ")}
                       </p>
                       <p className="mt-2.5">
                         <ProgressSteps visitedAt={item.visitedAt} joinedAt={item.joinedAt} />

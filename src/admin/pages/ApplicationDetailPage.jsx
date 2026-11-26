@@ -13,6 +13,7 @@ import CertificatesSection from "../components/CertificatesSection";
 import NotesSection from "../components/NotesSection";
 import TechnologyChoice from "../components/TechnologyChoice";
 import DurationChoice from "../components/DurationChoice";
+import CourseEditor from "../components/CourseEditor";
 import FeesSection from "../components/FeesSection";
 import { ConfirmDialog, secondaryButton } from "../components/AdminUi";
 import { useAdmin } from "../AdminAuth";
@@ -103,6 +104,7 @@ function ApplicationDetailPage() {
   const [confirmedTechnologies, setConfirmedTechnologies] = useState([]);
   const [allTechnologies, setAllTechnologies] = useState([]); // for "Other technology"
   const [confirmedDuration, setConfirmedDuration] = useState(""); // picked in the Joined box
+  const [isChangingCourse, setIsChangingCourse] = useState(false); // "Change" panel at the top
 
   // Every technology on the form (Settings page), loaded once
   useEffect(function () {
@@ -261,6 +263,7 @@ function ApplicationDetailPage() {
       application.lastStatusEmail.status === status;
     setSendStatusEmail(!alreadyEmailed);
     startTechnologyChoice();
+    setConfirmedDuration(application.durations.length === 1 ? application.durations[0] : "");
     setConfirmJoin(false);
     setStatusMessage({ text: "", isWarning: false });
     setConfirmStatus(status);
@@ -276,6 +279,7 @@ function ApplicationDetailPage() {
         status,
         sendEmail,
         status === "accepted" ? technologiesToSend() : null,
+        status === "accepted" ? confirmedDuration : "",
       );
       setApplication(result.application);
       setConfirmStatus("");
@@ -409,11 +413,45 @@ function ApplicationDetailPage() {
           <p className="mt-1 text-sm text-slate-500">
             {app.referenceNo} · Applied {formatDateTime(app.createdAt)}
           </p>
-          <p className="mt-3 text-[15px] font-semibold text-brand-800">
-            {app.internshipType && app.internshipType + " internship · "}
-            {app.technologies.join(", ")} · {app.durations.join(", ")} ·{" "}
-            {app.location} ({app.mode})
-          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="text-[15px] font-semibold text-brand-800">
+              {app.internshipType && app.internshipType + " internship · "}
+              {app.technologies.join(", ")} · {app.durations.join(", ")} ·{" "}
+              {app.mode}
+            </p>
+            {!app.deletedAt && !isChangingCourse && (
+              <button
+                type="button"
+                onClick={function () {
+                  setIsChangingCourse(true);
+                }}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50"
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path d="M13.6 3.4a2 2 0 012.9 2.9l-8.6 8.6-3.6.8.8-3.6 8.5-8.7z" />
+                </svg>
+                Change
+              </button>
+            )}
+          </div>
+          {(app.technologies.length > 1 || app.durations.length > 1) && !isChangingCourse && !app.deletedAt && (
+            <p className="mt-1.5 inline-block rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
+              The student chose more than one {app.technologies.length > 1 ? "technology" : "duration"}. Press Change to keep the right one.
+            </p>
+          )}
+          {isChangingCourse && (
+            <CourseEditor
+              application={app}
+              allTechnologies={allTechnologies}
+              onSaved={function (updated) {
+                setApplication(updated);
+                setIsChangingCourse(false);
+              }}
+              onCancel={function () {
+                setIsChangingCourse(false);
+              }}
+            />
+          )}
           {app.reviewedBy && app.status !== "pending" && (
             <p className="mt-2 text-[13px] text-slate-500">
               Marked {app.status} by {app.reviewedBy.name} on{" "}
@@ -654,6 +692,14 @@ function ApplicationDetailPage() {
                   disabled={savingStatus !== ""}
                 />
               )}
+              {confirmStatus === "accepted" && (
+                <DurationChoice
+                  studentDurations={app.durations}
+                  selected={confirmedDuration}
+                  onChange={setConfirmedDuration}
+                  disabled={savingStatus !== ""}
+                />
+              )}
               <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg bg-white px-3 py-2.5 ring-1 ring-slate-200">
                 <input
                   type="checkbox"
@@ -684,7 +730,8 @@ function ApplicationDetailPage() {
                   type="button"
                   disabled={
                     savingStatus !== "" ||
-                    (confirmStatus === "accepted" && technologyMissing)
+                    (confirmStatus === "accepted" &&
+                      (technologyMissing || !confirmedDuration))
                   }
                   onClick={function () {
                     changeStatus(confirmStatus, sendStatusEmail);
